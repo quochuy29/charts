@@ -1,0 +1,44 @@
+## Base service of bizcrm application:
+## Please read use guide in ./docs/dev-on-docker-env-note.pdf
+## This app will deploy on ECS so we can't use custom network need use deprecated docker 'link' feature
+## 1. Combined this file with docker-composer.prod.yml to build and run production image
+## 2. Combined this file with docker-composer.overrides.yml to build and run dev image
+version: "3.7"
+services:
+  charts_app:
+    image: charts-app:${TAG:-latest}
+    container_name: charts_app
+    init: true
+    environment:
+      APPLICATION_ENV: production
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: charts-app
+      args:
+        GIT_COMMIT_HASH: N/A
+        GIT_BRANCH_NAME: N/A
+    tty: true
+    restart: always
+  charts_public:
+    image: charts-public:${TAG:-latest}
+    container_name: charts_public
+    init: true
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      target: charts-public
+      args:
+        GIT_COMMIT_HASH: N/A
+        GIT_BRANCH_NAME: N/A
+    ports:
+      - 8080:80
+    restart: always
+    depends_on:
+      - charts_app
+    environment:
+        - APP_CONTAINER_LINK=charts_app:9000
+
+networks:
+  default:
+    name: charts
