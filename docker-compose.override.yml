@@ -48,34 +48,17 @@ services:
 
   charts_db:
     container_name: charts_db
-    image: mysql:8.0.28
-    cap_add:
-      - SYS_NICE  # CAP_SYS_NICE
-    command:
-      [
-        "--character-set-server=utf8mb4",
-        "--collation-server=utf8mb4_unicode_ci",
-        "--default-authentication-plugin=mysql_native_password",
-        "--skip-name-resolve",
-        "--sql-mode=",
-        "--group_concat_max_len=100000",
-        "--slow_query_log=1",
-        "--long_query_time=1",
-        "--slow_query_log_file=/var/log/mysql/slow.log",
-        "--log_queries_not_using_indexes=0",
-        "--general-log=1",
-        "--log-output=TABLE",
-        "--local-infile=1",
-      ]
+    image: postgres:16-alpine
     restart: always
     ports:
-      - 3308:3306
+      - 5432:5432
     environment:
-      MYSQL_ROOT_PASSWORD: huypq29102001
-      MYSQL_DATABASE: charts
+      POSTGRES_PASSWORD: huypq29102001
+      POSTGRES_DB: charts
+      PGDATA: /var/lib/postgresql/data/pgdata
       TZ: Asia/Tokyo
     volumes:
-      - data-mysql-charts:/var/lib/mysql:delegated
+      - data-pgsql-charts:/var/lib/postgresql/data/pgdata:delegated
 
   session_storage:
     container_name: session_storage_charts
@@ -85,5 +68,5 @@ services:
 # [ volumes definition ]
 # creates Docker volumes which can be mounted by other containers too e.g. for backup
 volumes:
-  data-mysql-charts:
+  data-pgsql-charts:
     driver: local
