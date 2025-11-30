@@ -8,13 +8,17 @@
         </div>
 
         <div class="flex-1 relative min-h-0">
+            <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <span class="text-gray-500">Loading data...</span>
+            </div>
+
             <Line
-                v-if="chartType === 'line'"
+                v-if="chartType === 'line' && chartData.labels.length > 0"
                 :data="chartData"
                 :options="chartOptions"
             />
             <Bar
-                v-else-if="chartType === 'bar'"
+                v-else-if="chartType === 'bar' && chartData.labels.length > 0"
                 :data="chartData"
                 :options="chartOptions"
             />
@@ -22,103 +26,22 @@
                 v-else
                 class="flex items-center justify-center h-full text-gray-500"
             >
-                Select a valid view mode or node to see the chart.
+                {{ loading ? '' : 'No data available for this selection.' }}
             </div>
         </div>
 
-        <div
-            class="mt-4 flex flex-wrap items-center justify-between gap-4 shrink-0 border-t pt-4 border-gray-100"
-        >
-            <div class="flex items-center gap-6 text-sm">
-                <template v-if="viewMode === 'daily' || viewMode === 'period'">
-                    <div class="flex items-center gap-2">
-                        <span class="flex items-center">
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(195,85%,45%)]"
-                            ></span>
-                            <span
-                                class="w-3 h-0.5 bg-[hsl(195,85%,45%)] -ml-1"
-                            ></span>
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(195,85%,45%)] -ml-1"
-                            ></span>
-                        </span>
-                        <span class="font-medium text-[hsl(195,85%,45%)]"
-                            >Consumption</span
-                        >
-                    </div>
-
-                    <div v-if="showTarget" class="flex items-center gap-2">
-                        <span class="flex items-center">
-                            <span
-                                class="w-2 h-2 rounded-full border border-[hsl(35,90%,55%)] bg-white"
-                            ></span>
-                            <span
-                                class="w-3 h-0.5 border-t border-dashed border-[hsl(35,90%,55%)] -ml-1"
-                            ></span>
-                            <span
-                                class="w-2 h-2 rounded-full border border-[hsl(35,90%,55%)] bg-white -ml-1"
-                            ></span>
-                        </span>
-                        <span class="font-medium text-[hsl(35,90%,55%)]"
-                            >Target</span
-                        >
-                    </div>
-                </template>
-
-                <template v-else-if="viewMode === 'comparison'">
-                    <div class="flex items-center gap-2">
-                        <span class="flex items-center">
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(195,85%,45%)]"
-                            ></span>
-                            <span
-                                class="w-3 h-0.5 bg-[hsl(195,85%,45%)] -ml-1"
-                            ></span>
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(195,85%,45%)] -ml-1"
-                            ></span>
-                        </span>
-                        <span class="font-medium text-[hsl(195,85%,45%)]"
-                            >Period 1</span
-                        >
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="flex items-center">
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(180,75%,50%)]"
-                            ></span>
-                            <span
-                                class="w-3 h-0.5 bg-[hsl(180,75%,50%)] -ml-1"
-                            ></span>
-                            <span
-                                class="w-2 h-2 rounded-full bg-[hsl(180,75%,50%)] -ml-1"
-                            ></span>
-                        </span>
-                        <span class="font-medium text-[hsl(180,75%,50%)]"
-                            >Period 2</span
-                        >
-                    </div>
-                </template>
-
-                <template v-else-if="viewMode === 'shop-comparison'">
-                    <div class="flex items-center gap-2">
-                        <span
-                            class="w-3 h-3 rounded-sm bg-[hsl(195,85%,45%)]"
-                        ></span>
-                        <span class="font-medium text-[hsl(195,85%,45%)]"
-                            >Actual</span
-                        >
-                    </div>
-                    <div v-if="showTarget" class="flex items-center gap-2">
-                        <span
-                            class="w-3 h-3 rounded-sm bg-[hsl(180,75%,50%)]"
-                        ></span>
-                        <span class="font-medium text-[hsl(180,75%,50%)]"
-                            >Target</span
-                        >
-                    </div>
-                </template>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-4 shrink-0 border-t pt-4 border-gray-100">
+             <div class="flex items-center gap-6 text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-[hsl(195,85%,45%)]"></span>
+                    <span class="font-medium text-[hsl(195,85%,45%)]">
+                        {{ viewMode === 'shop-comparison' ? 'Actual' : 'Consumption' }}
+                    </span>
+                </div>
+                <div v-if="showTarget" class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full border border-[hsl(35,90%,55%)] bg-white"></span>
+                    <span class="font-medium text-[hsl(35,90%,55%)]">Target</span>
+                </div>
             </div>
 
             <div class="flex items-center gap-3">
@@ -129,7 +52,8 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
+import axios from 'axios';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -143,7 +67,6 @@ import {
     Filler,
 } from "chart.js";
 import { Line, Bar } from "vue-chartjs";
-import { generateChartDataByNode } from "../../../src/data/mock.js";
 
 ChartJS.register(
     CategoryScale,
@@ -166,9 +89,13 @@ const props = defineProps({
     yAxisConfig: Object,
 });
 
+// State
+const loading = ref(false);
+const rawApiData = ref([]); // Lưu dữ liệu thô từ API
+
 const getDescription = computed(() => {
     const map = {
-        daily: "Daily energy consumption (05:00 - 29:00)",
+        daily: "Daily energy consumption",
         period: "Weekly period report",
         comparison: "Period comparison",
         "shop-comparison": "Shop-level comparison",
@@ -183,165 +110,177 @@ const getUnitLabel = computed(() => {
 });
 
 const chartType = computed(() => {
-    if (props.viewMode === "daily" || props.viewMode === "comparison")
-        return "line";
-    if (props.viewMode === "period" || props.viewMode === "shop-comparison")
-        return "bar";
-    return "line";
+    if (props.viewMode === "daily" || props.viewMode === "comparison") return "line";
+    return "bar";
 });
 
+const formatDateLocal = (date) => {
+    if (!date) return null;
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+};
+
+// --- FETCH DATA FROM API ---
+const fetchData = async () => {
+    if (!props.selectedNode) return;
+    
+    loading.value = true;
+    try {
+        // Gọi API Laravel
+        const response = await axios.get('/api/chart-data', {
+            params: {
+                node_id: props.selectedNode.id,
+                view_mode: props.viewMode,
+                date: formatDateLocal(props.selectedDate),
+                unit_type: props.unitType
+            }
+        });
+        rawApiData.value = response.data;
+    } catch (e) {
+        console.error("API Error:", e);
+        rawApiData.value = [];
+    } finally {
+        loading.value = false;
+    }
+};
+
+// Watch các thay đổi để gọi lại API
+watch(
+    () => [props.selectedNode, props.viewMode, props.selectedDate, props.unitType], 
+    fetchData, 
+    { immediate: true, deep: true }
+);
+
+// --- CHART DATA COMPUTED ---
 const chartData = computed(() => {
-    const nodeId = props.selectedNode?.id || "factory-1";
+    if (!rawApiData.value || rawApiData.value.length === 0) {
+        return { labels: [], datasets: [] };
+    }
 
-    // TRUYỀN UNIT TYPE VÀ DATE VÀO HÀM GENERATE
-    if (props.viewMode === "daily") {
-        const { labels, nodeConsumptionData, factoryTotalData } =
-            generateChartDataByNode(
-                nodeId,
-                "daily",
-                props.selectedDate,
-                props.unitType
-            );
+    const data = rawApiData.value;
+    const labels = data.map(item => item.label);
 
+    // 1. DAILY (Giữ nguyên)
+    if (props.viewMode === 'daily') {
+        const values = data.map(item => item.value);
+        const targets = data.map(item => item.target);
         return {
             labels,
             datasets: [
                 {
                     label: `Consumption`,
-                    data: nodeConsumptionData,
+                    data: values,
                     borderColor: "hsl(195, 85%, 45%)",
                     backgroundColor: "rgba(19, 137, 187, 0.2)",
                     fill: true,
                     tension: 0.4,
                     pointRadius: 3,
-                    pointHoverRadius: 6,
                     order: 2,
                 },
                 props.showTarget && {
                     label: "Target",
-                    data: factoryTotalData,
+                    data: targets,
                     borderColor: "hsl(35, 90%, 55%)",
                     borderDash: [5, 5],
                     pointRadius: 0,
-                    pointHoverRadius: 4,
                     borderWidth: 2,
                     order: 1,
-                },
-            ].filter(Boolean),
+                }
+            ].filter(Boolean)
         };
     }
 
-    if (props.viewMode === "comparison") {
-        const { labels, period1Data, period2Data } = generateChartDataByNode(
-            nodeId,
-            "comparison",
-            props.selectedDate,
-            props.unitType
-        );
+    // 2. COMPARISON (SỬA LẠI PHẦN NÀY)
+    if (props.viewMode === 'comparison') {
+        // --- QUAN TRỌNG: Map đúng key từ API trả về ---
+        // Backend trả về: period1Data, period2Data (như trong ảnh)
+        const p1 = data.map(item => item.period1Data); 
+        const p2 = data.map(item => item.period2Data);
+        
         return {
             labels,
             datasets: [
                 {
-                    label: "Period 1",
-                    data: period1Data,
-                    borderColor: "hsl(195, 85%, 45%)",
+                    label: "Period 1", // Năm nay
+                    data: p1,
+                    borderColor: "hsl(195, 85%, 45%)", // Màu Xanh
                     backgroundColor: "transparent",
                     tension: 0.4,
                     pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: "hsl(195, 85%, 45%)",
                 },
                 {
-                    label: "Period 2",
-                    data: period2Data,
-                    borderColor: "hsl(180, 75%, 50%)",
+                    label: "Period 2", // Năm ngoái
+                    data: p2,
+                    borderColor: "hsl(180, 75%, 50%)", // Màu Cyan
                     backgroundColor: "transparent",
                     tension: 0.4,
                     pointRadius: 4,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: "hsl(180, 75%, 50%)",
-                },
-            ],
+                }
+            ]
         };
     }
 
-    if (props.viewMode === "period") {
-        const { labels, nodeConsumptionData, factoryTotalData } =
-            generateChartDataByNode(
-                nodeId,
-                "period",
-                props.selectedDate,
-                props.unitType
-            );
+    // 3. PERIOD (Giữ nguyên)
+    if (props.viewMode === 'period') {
+        const values = data.map(item => item.value);
+        const targets = data.map(item => item.target);
         return {
             labels,
             datasets: [
                 {
                     label: `Consumption`,
-                    data: nodeConsumptionData,
+                    data: values,
                     backgroundColor: "hsl(195, 85%, 45%)",
                     order: 2,
                 },
                 props.showTarget && {
-                    type: "line",
+                    type: 'line',
                     label: "Target",
-                    data: factoryTotalData,
+                    data: targets,
                     borderColor: "hsl(35, 90%, 55%)",
                     borderDash: [5, 5],
                     pointRadius: 0,
                     borderWidth: 2,
                     order: 1,
-                },
-            ].filter(Boolean),
+                }
+            ].filter(Boolean)
         };
     }
 
-    // --- LOGIC XỬ LÝ ĐẶC BIỆT CHO SHOP COMPARISON ---
-    if (props.viewMode === "shop-comparison") {
-        const data = generateChartDataByNode(
-            nodeId,
-            "shop-comparison",
-            props.selectedDate,
-            props.unitType
-        );
-        if (!data.labels || data.labels.length === 0)
-            return { labels: ["N/A"], datasets: [] };
+    // 4. SHOP COMPARISON (Giữ nguyên)
+    if (props.viewMode === 'shop-comparison') {
+        let values = data.map(item => item.value);
+        let targets = data.map(item => item.target);
 
-        let actualData = data.actualData;
-        let targetData = data.targetData;
-
-        // ÁP DỤNG BỘ LỌC Y-AXIS (MIN/MAX) ĐỂ GÁN VỀ 0
+        // Filter Y-Axis
         const { min, max } = props.yAxisConfig || {};
         if (min !== null || max !== null) {
-            const lowerBound = min ?? -Infinity;
-            const upperBound = max ?? Infinity;
-
-            // Hàm kiểm tra và gán về 0 nếu vi phạm
-            const filterValue = (val) =>
-                val < lowerBound || val > upperBound ? 0 : val;
-
-            actualData = actualData.map(filterValue);
-            targetData = targetData.map(filterValue);
+            const lower = min ?? -Infinity;
+            const upper = max ?? Infinity;
+            const filterFn = (val) => (val < lower || val > upper) ? 0 : val;
+            values = values.map(filterFn);
+            targets = targets.map(filterFn);
         }
 
         return {
-            labels: data.labels,
+            labels,
             datasets: [
                 {
                     label: "Actual",
-                    data: actualData,
+                    data: values,
                     backgroundColor: "hsl(195, 85%, 45%)",
                     barPercentage: 0.7,
                     categoryPercentage: 0.8,
                 },
                 props.showTarget && {
                     label: "Target",
-                    data: targetData,
+                    data: targets,
                     backgroundColor: "hsl(180, 75%, 50%)",
                     barPercentage: 0.7,
                     categoryPercentage: 0.8,
-                },
-            ].filter(Boolean),
+                }
+            ].filter(Boolean)
         };
     }
 
@@ -356,37 +295,21 @@ const chartOptions = computed(() => {
         responsive: true,
         maintainAspectRatio: false,
         indexAxis: isHorizontal ? "y" : "x",
-
         interaction: {
             mode: "index",
             intersect: false,
             axis: isHorizontal ? "y" : "x",
         },
-
         plugins: {
             legend: { display: false },
-            title: { display: false },
             tooltip: {
                 enabled: true,
-                backgroundColor: "rgba(255, 255, 255, 0.95)",
-                titleColor: "#000",
-                bodyColor: "#333",
-                borderColor: "#e5e7eb",
-                borderWidth: 1,
-                padding: 10,
-                boxPadding: 4,
-                usePointStyle: true,
                 callbacks: {
-                    label: function (context) {
+                    label: (context) => {
                         let label = context.dataset.label || "";
-                        if (label) {
-                            label += ": ";
-                        }
-                        if (context.raw !== null && context.raw !== undefined) {
-                            label +=
-                                context.raw.toLocaleString() +
-                                " " +
-                                getUnitLabel.value;
+                        if (label) label += ": ";
+                        if (context.raw !== null) {
+                            label += context.raw.toLocaleString() + " " + getUnitLabel.value;
                         }
                         return label;
                     },
@@ -398,7 +321,6 @@ const chartOptions = computed(() => {
                 grid: { color: "#f3f4f6" },
                 title: { display: isHorizontal, text: getUnitLabel.value },
                 stacked: false,
-                // Chỉ áp dụng Min/Max cho trục X nếu là biểu đồ ngang
                 ...(isHorizontal && {
                     min: min ?? undefined,
                     max: max ?? undefined,
@@ -410,10 +332,10 @@ const chartOptions = computed(() => {
                 title: { display: !isHorizontal, text: getUnitLabel.value },
                 beginAtZero: true,
                 stacked: false,
-                // Chỉ áp dụng Min/Max cho trục Y nếu là biểu đồ dọc
                 ...(!isHorizontal && {
                     min: min ?? undefined,
                     max: max ?? undefined,
+                    suggestedMax: 100,
                     ticks: { stepSize: interval ?? undefined },
                 }),
             },

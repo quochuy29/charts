@@ -84,7 +84,7 @@ const unitType = ref('energy');
 const selectedDate = ref(new Date());
 const showTarget = ref(true);
 const selectedNode = ref({
-  id: "factory-1",
+  id: 1,
   name: "Factory 1 - Main Production",
   type: "factory",
 });

@@ -15,8 +15,12 @@
 
     <div class="flex-1 overflow-y-auto p-2">
       
+      <div v-if="loading" class="flex justify-center p-4 text-gray-500">
+        Loading...
+      </div>
+
       <TreeItem 
-        v-if="mode === 'dashboard'"
+        v-else-if="mode === 'dashboard'"
         :list="treeData" 
         :selectedNode="selectedNode"
         @select="handleSelect" 
@@ -41,31 +45,46 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
-// SỬA TẠI ĐÂY: Đổi FileTree thành FolderTree
+import { ref, onMounted } from 'vue';
+import axios from 'axios'; // Import Axios
 import { Search, Users, FolderTree, Settings } from 'lucide-vue-next'; 
 import TreeItem from './TreeItem.vue';
-import { initialTreeData } from '../../../src/data/mock.js';
 
-// Cập nhật Props
 const props = defineProps({
   selectedNode: Object,
-  mode: { type: String, default: 'dashboard' }, // 'dashboard' | 'configuration'
+  mode: { type: String, default: 'dashboard' },
   activeConfigTab: { type: String, default: 'user-management' }
 });
 
 const emit = defineEmits(['update:selectedNode', 'update:activeConfigTab']);
 
-const treeData = ref(initialTreeData);
+const treeData = ref([]);
+const loading = ref(true);
 
-// Danh sách menu cho màn hình Configuration
 const configMenuItems = [
   { id: 'user-management', label: 'User Management', icon: Users },
-  { id: 'tree-tag', label: 'Configuration Tree Tag', icon: FolderTree }, // Cập nhật icon ở đây
+  { id: 'tree-tag', label: 'Configuration Tree Tag', icon: FolderTree },
   { id: 'setting', label: 'Setting', icon: Settings },
 ];
 
 const handleSelect = (node) => {
   emit('update:selectedNode', node);
 };
+
+// --- FETCH DATA TỪ API ---
+onMounted(async () => {
+  try {
+    const response = await axios.get('/api/sidebar-tree');
+    treeData.value = response.data;
+    
+    // Nếu chưa chọn node nào và có dữ liệu, chọn node đầu tiên làm mặc định
+    if (!props.selectedNode && treeData.value.length > 0) {
+        handleSelect(treeData.value[0]);
+    }
+  } catch (error) {
+    console.error("Failed to fetch sidebar tree:", error);
+  } finally {
+    loading.value = false;
+  }
+});
 </script>

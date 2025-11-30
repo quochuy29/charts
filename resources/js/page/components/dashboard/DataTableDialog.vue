@@ -31,7 +31,8 @@
                 <div class="flex justify-end">
                     <button
                         @click="handleExportCSV"
-                        class="flex items-center gap-2 px-4 py-2 bg-[hsl(195,85%,45%)] text-white text-sm font-semibold rounded-md shadow-sm hover:bg-[hsl(195,85%,40%)] transition-all active:scale-95"
+                        :disabled="loading || tableData.length === 0"
+                        class="flex items-center gap-2 px-4 py-2 bg-[hsl(195,85%,45%)] text-white text-sm font-semibold rounded-md shadow-sm hover:bg-[hsl(195,85%,40%)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download class="h-4 w-4" />
                         Export CSV
@@ -39,7 +40,18 @@
                 </div>
             </div>
 
-            <div class="flex-1 overflow-auto bg-white">
+            <div class="flex-1 overflow-auto bg-white relative">
+                <div
+                    v-if="loading"
+                    class="absolute inset-0 flex items-center justify-center bg-white/80 z-10"
+                >
+                    <span
+                        class="text-gray-500 font-medium flex items-center gap-2"
+                    >
+                        Loading data...
+                    </span>
+                </div>
+
                 <table class="w-full text-sm text-left">
                     <thead
                         class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10"
@@ -93,10 +105,10 @@
                                 {{ calculateVariance(row) }}%
                             </td>
                         </tr>
-                        <tr v-if="tableData.length === 0">
+                        <tr v-if="!loading && tableData.length === 0">
                             <td
                                 colspan="4"
-                                class="py-8 text-center text-gray-500"
+                                class="py-12 text-center text-gray-500"
                             >
                                 No data available for the current selection.
                             </td>
@@ -121,12 +133,11 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
+import axios from "axios";
 import { Download, X } from "lucide-vue-next";
-// QUAN TRỌNG: Import hàm logic chung từ mockData
-import { generateChartDataByNode } from "../../../src/data/mock.js";
 
-// Nhận props
+// --- PROPS ---
 const props = defineProps({
     open: Boolean,
     viewMode: String,
@@ -137,7 +148,11 @@ const props = defineProps({
 
 const emit = defineEmits(["update:open"]);
 
-// Helper: Label đơn vị
+// --- STATE ---
+const tableData = ref([]);
+const loading = ref(false);
+
+// --- HELPERS ---
 const getUnitLabel = computed(() => {
     switch (props.unitType) {
         case "energy":
@@ -151,18 +166,11 @@ const getUnitLabel = computed(() => {
     }
 });
 
-// Helper: Tên chế độ xem
 const viewModeLabel = computed(() => {
-    const map = {
-        daily: "daily",
-        period: "period",
-        comparison: "comparison",
-        "shop-comparison": "shop comparison",
-    };
-    return map[props.viewMode] || "current";
+    return props.viewMode?.replace("-", " ") || "current";
 });
 
-// Logic Tiêu đề Cột (Dynamic Headers)
+// Tiêu đề cột động
 const columnHeaders = computed(() => {
     const unit = `(${getUnitLabel.value})`;
 
@@ -180,7 +188,6 @@ const columnHeaders = computed(() => {
             col3: `Target ${unit}`,
         };
     }
-    // Daily & Period
     return {
         col1: "Time",
         col2: `Consumption ${unit}`,
@@ -188,7 +195,7 @@ const columnHeaders = computed(() => {
     };
 });
 
-// Format số đẹp
+// Format số
 const formatNumber = (num) => {
     if (num === null || num === undefined) return "-";
     return parseFloat(num).toLocaleString("en-US", {
@@ -197,47 +204,80 @@ const formatNumber = (num) => {
     });
 };
 
-// --- LOGIC DỮ LIỆU ĐỒNG BỘ VỚI BIỂU ĐỒ ---
-const tableData = computed(() => {
-    const nodeId = props.selectedNode?.id || "factory-1";
+const formatDateLocal = (date) => {
+    if (!date) return null;
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+    return localDate.toISOString().split('T')[0];
+};
 
-    // Gọi hàm generate giống hệt ChartArea
-    const data = generateChartDataByNode(
-        nodeId,
-        props.viewMode,
-        props.selectedDate,
-        props.unitType
-    );
+// --- API FETCH LOGIC ---
+const fetchTableData = async () => {
+    if (!props.selectedNode) return;
 
-    // Nếu không có labels, trả về rỗng
-    if (!data.labels || data.labels.length === 0 || data.labels[0] === "N/A")
-        return [];
+    loading.value = true;
+    try {
+        // Gọi API giống ChartArea
+        const response = await axios.get("/api/chart-data", {
+            params: {
+                node_id: props.selectedNode.id,
+                view_mode: props.viewMode,
+                date: formatDateLocal(props.selectedDate),
+                unit_type: props.unitType,
+            },
+        });
 
-    return data.labels.map((label, index) => {
-        let value1 = 0;
-        let value2 = 0;
+        const apiData = response.data;
 
-        if (props.viewMode === "comparison") {
-            value1 = data.period1Data?.[index] || 0;
-            value2 = data.period2Data?.[index] || 0;
-        } else if (props.viewMode === "shop-comparison") {
-            value1 = data.actualData?.[index] || 0;
-            value2 = data.targetData?.[index] || 0;
+        // --- MAP DỮ LIỆU API SANG DẠNG BẢNG ---
+        // API trả về: { labels: [], nodeConsumptionData: [], factoryTotalData: [], ... }
+        if (apiData && apiData.labels && apiData.labels.length > 0) {
+            tableData.value = apiData.labels.map((label, index) => {
+                let val1 = 0;
+                let val2 = 0;
+
+                // Lấy đúng trường dữ liệu tùy theo ViewMode
+                if (props.viewMode === "comparison") {
+                    val1 = apiData.period1Data?.[index] ?? 0;
+                    val2 = apiData.period2Data?.[index] ?? 0;
+                } else if (props.viewMode === "shop-comparison") {
+                    val1 = apiData.actualData?.[index] ?? 0;
+                    val2 = apiData.targetData?.[index] ?? 0;
+                } else {
+                    // Daily & Period
+                    val1 = apiData.nodeConsumptionData?.[index] ?? 0;
+                    val2 = apiData.factoryTotalData?.[index] ?? 0;
+                }
+
+                return {
+                    label: label,
+                    value1: val1,
+                    value2: val2,
+                };
+            });
         } else {
-            // Daily & Period
-            value1 = data.nodeConsumptionData?.[index] || 0;
-            value2 = data.factoryTotalData?.[index] || 0;
+            tableData.value = [];
         }
+    } catch (e) {
+        console.error("Failed to fetch table data:", e);
+        tableData.value = [];
+    } finally {
+        loading.value = false;
+    }
+};
 
-        return {
-            label: label,
-            value1: value1,
-            value2: value2,
-        };
-    });
-});
+// Gọi API khi mở Modal hoặc thay đổi Props
+watch(
+    () => [props.open, props.viewMode, props.unitType, props.selectedDate],
+    ([isOpen]) => {
+        if (isOpen) {
+            fetchTableData();
+        }
+    },
+    { immediate: true }
+);
 
-// Tính chênh lệch %
+// --- CALCULATIONS ---
 const calculateVariance = (row) => {
     const val1 = parseFloat(row.value1);
     const val2 = parseFloat(row.value2);
@@ -245,34 +285,25 @@ const calculateVariance = (row) => {
     return (((val1 - val2) / val2) * 100).toFixed(1);
 };
 
-// Màu sắc Variance
 const getVarianceClass = (row) => {
     const variance = parseFloat(calculateVariance(row));
-    // Nếu là comparison: chênh lệch dương có thể là tốt hoặc xấu tùy ngữ cảnh,
-    // nhưng thường vượt target/period cũ là cảnh báo (Đỏ)
     return variance > 0 ? "text-red-600" : "text-emerald-600";
 };
 
-// Chức năng Export CSV
+// --- EXPORT CSV ---
 const handleExportCSV = () => {
-    // 1. Tạo Header từ dynamic headers
     const headers = [
         columnHeaders.value.col1,
         columnHeaders.value.col2,
         columnHeaders.value.col3,
         "Variance (%)",
     ];
-
-    // 2. Map dữ liệu
     const rows = tableData.value.map(
         (row) =>
             `${row.label},${row.value1},${row.value2},${calculateVariance(row)}`
     );
 
-    // 3. Ghép chuỗi CSV
-    const csvContent = [headers.join(","), ...rows].join("\n");
-
-    // 4. Tạo Blob và Download
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n"); // BOM for UTF-8
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -288,7 +319,6 @@ const handleExportCSV = () => {
         `Data_${nodeName}_${props.viewMode}_${dateStr}.csv`
     );
     link.style.visibility = "hidden";
-
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
