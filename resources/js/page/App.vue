@@ -1,15 +1,16 @@
 <template>
-    <RouterView></RouterView>
+    <div>
+        <RouterView></RouterView>
+        <Toaster></Toaster>
+    </div>
 </template>
 
-<script>
-    export default {
-        
-    }
+<script setup>
+import Toaster from "./components/ui/Toaster.vue";
 </script>
 
 <style lang="css">
 html {
-  scroll-behavior: smooth;
+    scroll-behavior: smooth;
 }
 </style>
