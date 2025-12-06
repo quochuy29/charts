@@ -9,22 +9,17 @@ FROM $BASE_PHP AS php-fpm-alpine-builder
 LABEL maintainer="huypq <phanquochuyqthm@gmail.com>"
 ENV TZ=Asia/Tokyo
 RUN set -eux; \
-        \
-        apk update; \
-        \
-        echo "CHANGE TIME ZONE TO '$TZ' AT BUILD TIME ONLY"; \
-            apk add --no-cache tzdata; \
-            cp /usr/share/zoneinfo/$TZ /etc/localtime; \
-            echo $TZ > /etc/timezone; \
-            echo "Test current date: $(date)"; \
-            echo "timezone will reset to UTC if we run command 'apk del tzdata' so no run command until this bug fixed by alpine maintainer"; \
-        \
-        echo "INSTALL  PHP EXTENSION NEEDED 'pdo_mysql' 'opcache'"; \
-            apk add --no-cache --virtual .build-deps $PHPIZE_DEPS; \
-            docker-php-ext-install -j "$(nproc)" pdo_mysql; \
-        \
-        echo 'CLEAN UP TEMP TO REDUCE DOCKER IMAGE SIZES'; \
-        rm -rf /tmp/* /var/cache/apk/*
+    # ... (đoạn timezone) ...
+    echo "INSTALL PHP EXTENSION NEEDED 'pdo_pgsql' 'opcache'"; \
+    # 1. Cài build dependencies (để biên dịch)
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS libpq-dev; \
+    # 2. Cài runtime dependencies (QUAN TRỌNG: Thêm dòng này)
+    # Gói 'libpq' chứa file libpq.so.5 cần thiết để chạy
+    apk add --no-cache libpq; \
+    # 3. Cài extension
+    docker-php-ext-install -j "$(nproc)" pdo_pgsql opcache; \
+    echo 'CLEAN UP TEMP TO REDUCE DOCKER IMAGE SIZES'; \
+    rm -rf /tmp/* /var/cache/apk/*
 
 #####################################################################################################################
 ## charts-public: bundle  public source code (js,css). use this image on read-only env (production, staging) ##
