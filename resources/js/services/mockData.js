@@ -1,68 +1,109 @@
 import { reactive } from 'vue';
 
-// 1. Dữ liệu Menu (Reactive để trang MenuSettings có thể chỉnh sửa và Sidebar tự cập nhật)
-export const mockMenuData = reactive([
+// 1. Menu
+
+export const initialTreeData = [
     {
-        id: 'f1', name: 'Nhà máy 1', type: 'factory', isVisible: true,
+        id: "factory-1",
+        name: "Factory 1 - Main Production",
+        type: "factory",
         children: [
             {
-                id: 'l1', name: 'Dây chuyền lắp ráp A', type: 'line', isVisible: true,
+                id: "line-1",
+                name: "Line 1 - Assembly",
+                type: "line",
                 children: [
-                    { id: 'p1', name: 'Hàn (Welding)', type: 'process', isVisible: true },
-                    { id: 'p2', name: 'Sơn (Painting)', type: 'process', isVisible: true }
+                    {
+                        id: "shop-1",
+                        name: "Shop A - Welding",
+                        type: "shop",
+                        children: [
+                            { id: "eq-1", name: "Welder Unit 01", type: "equipment" },
+                            { id: "eq-2", name: "Welder Unit 02", type: "equipment" },
+                            { id: "eq-3", name: "Transformer T-001", type: "equipment" }
+                        ]
+                    },
+                    {
+                        id: "shop-2",
+                        name: "Shop B - Painting",
+                        type: "shop",
+                        children: [
+                            { id: "eq-4", name: "Paint Booth 01", type: "equipment" },
+                            { id: "eq-5", name: "Paint Booth 02", type: "equipment" },
+                        ]
+                    },
+                ],
+            },
+        ],
+    },
+    {
+        id: "factory-2",
+        name: "Factory 2 - Processing",
+        type: "factory",
+        children: [],
+    },
+];
+
+
+export const mockMenuData = reactive([
+    {
+        id: 'f1', name: '第1工場', type: 'factory', isVisible: true,
+        children: [
+            {
+                id: 'l1', name: '組立ラインA', type: 'line', isVisible: true,
+                children: [
+                    { id: 'p1', name: '溶接工程', type: 'process', isVisible: true },
+                    { id: 'p2', name: '塗装工程', type: 'process', isVisible: true }
                 ]
             }
         ]
     },
-    {
-        id: 'f2', name: 'Nhà máy 2', type: 'factory', isVisible: true,
-        children: []
-    }
+    { id: 'f2', name: '第2工場', type: 'factory', isVisible: true, children: [] }
 ]);
 
-// 2. Dữ liệu Users
+// 2. Users
 export const mockUsers = reactive([
-    { id: '1', display_name: 'HuyPQ', email: 'huypq@vnext.vn', role: 'admin', created_at: '2025-01-01' },
-    { id: '2', display_name: 'PhucND', email: 'phucnd@vnext.vn', role: 'user', created_at: '2025-01-01' },
-    { id: '3', display_name: 'ThangNV', email: 'thangnv@vnext.vn', role: 'user', created_at: '2025-01-01' },
+    { id: '1', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '2', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '3', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '4', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '5', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '6', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
+    { id: '7', display_name: '管理者', email: 'admin@toyota-kyushu.com', role: 'admin', created_at: '2025-01-01' },
 ]);
 
-// 3. Dữ liệu Kế hoạch sản xuất (Production Plans)
-// Key là factoryId, Value là object chứa năm -> tháng -> dữ liệu
+// 3. Plans
 export const mockProductionPlans = reactive({
     'f1': {
         2025: {
-            4: { units: 1200, notes: 'Bắt đầu năm tài chính' },
+            4: { units: 1200, notes: '年度始め' },
             5: { units: 1500, notes: '' },
-            6: { units: 1400, notes: 'Bảo trì định kỳ' }
+            6: { units: 1400, notes: '定期メンテナンス' }
         }
     }
 });
 
-// Hàm helper để sinh dữ liệu biểu đồ
+// 4. Charts
 export const generateChartData = (period) => {
     const count = period === 'day' ? 24 : (period === 'month' ? 30 : 12);
     const labels = Array.from({ length: count }, (_, i) => i + 1);
-    const dataActual = Array.from({ length: count }, () => Math.floor(Math.random() * 500) + 100);
-    const dataTarget = Array.from({ length: count }, () => 400); // Mục tiêu cố định
     
     return {
         labels: labels,
         datasets: [
             {
-                label: 'Thực tế (Actual)',
-                backgroundColor: '#3b82f6', // blue-500
-                borderColor: '#3b82f6',
-                data: dataActual,
-                fill: false,
-                type: 'bar' // Mặc định là bar, có thể override ở component
+                label: '実績 (Actual)',
+                backgroundColor: '#ef4444', 
+                borderColor: '#ef4444',
+                data: Array.from({ length: count }, () => Math.floor(Math.random() * 500) + 100),
+                borderWidth: 1
             },
             {
-                label: 'Mục tiêu (Target)',
-                backgroundColor: '#ef4444', // red-500
-                borderColor: '#ef4444',
-                data: dataTarget,
-                type: 'line', // Đường line mục tiêu
+                label: '目標 (Target)',
+                backgroundColor: '#3b82f6',
+                borderColor: '#3b82f6',
+                data: Array.from({ length: count }, () => 400),
+                type: 'line',
                 borderDash: [5, 5],
                 pointRadius: 0
             }

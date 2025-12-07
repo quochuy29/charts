@@ -1,16 +1,17 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import tailwindcss from '@tailwindcss/vite';
-import vue from '@vitejs/plugin-vue'; // Import the Vue plugin
+import vue from '@vitejs/plugin-vue';
+
+// XÓA dòng này: import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
     plugins: [
-        vue(), // Add the Vue plugin here
+        vue(),
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
         }),
-        tailwindcss(),
+        // XÓA dòng này: tailwindcss(),
     ],
     server: {
         host: '0.0.0.0',
@@ -19,7 +20,7 @@ export default defineConfig({
             host: 'localhost'
         },
         watch: {
-            usePolling: true, // Bắt buộc trên Docker Windows/WSL để nhận diện thay đổi file
+            usePolling: true,
         },
     }
 });
