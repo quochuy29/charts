@@ -34,7 +34,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { mockMenuData, initialTreeData } from '../../../services/mockData';
-import { Search, Users, Database, Settings, LayoutDashboard, Calendar } from 'lucide-vue-next'; 
+import { Search, Users, Database, LayoutDashboard, Calendar } from 'lucide-vue-next'; 
 import TreeItem from './TreeItem.vue';
 
 const props = defineProps({
@@ -50,7 +50,6 @@ const configMenuItems = [
   { id: 'dashboard', label: "ダッシュボード", url: "/dashboard", icon: LayoutDashboard },
   { id: 'production-planning', label: "生産計画設定", url: "/production-planning", icon: Calendar },
   { id: 'user-management', label: "ユーザー管理", url: "/user-management", icon: Users },
-  { id: 'menu-settings', label: "メニュー設定", url: "/menu-settings", icon: Settings },
   { id: 'data-maintenance', label: "データ保守", url: "/data-maintenance", icon: Database },
 ];
 

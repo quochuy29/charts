@@ -9,7 +9,6 @@ const routes = [
     { path: '/dashboard', name: 'dashboard', component: () => import('../page/Dashboard.vue') },
     { path: '/user-management', name: 'user-management', component: () => import('../page/UserManagement.vue') },
     { path: '/production-planning', name: 'production-planning', component: () => import('../page/ProductionPlanning.vue') },
-    { path: '/menu-settings', name: 'menu-settings', component: () => import('../page/MenuSettings.vue') },
     { path: '/data-maintenance', name: 'data-maintenance', component: () => import('../page/DataMaintenance.vue') },
 ];
 

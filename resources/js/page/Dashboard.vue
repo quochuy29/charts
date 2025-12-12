@@ -107,9 +107,6 @@
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7-4h14M4 6h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z" /></svg>
           データ表
         </button>
-        <button @click="refreshData" class="flex items-center justify-center gap-2 px-6 py-2 text-sm font-bold text-white bg-red-600 border border-red-600 rounded-lg hover:bg-red-700 shadow-sm hover:shadow active:scale-95 transition-all min-w-[100px]">
-          CSV出力
-        </button>
     </div>
 
   </div>
