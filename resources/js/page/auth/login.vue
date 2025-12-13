@@ -13,7 +13,7 @@
       <form @submit.prevent="login" class="space-y-5">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID:</label>
-          <input v-model="email" type="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" placeholder="name@toyota.com" required>
+          <input v-model="userId" type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" placeholder="name@toyota.com" required>
         </div>
         
         <div>
@@ -36,13 +36,51 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios'; // Đảm bảo đã import axios
 
-const email = ref('');
+const userId = ref(''); // Đổi email -> userId
 const password = ref('');
 const router = useRouter();
+const errorMessage = ref('');
 
-const login = () => {
-    localStorage.setItem('isAuthenticated', 'true');
-    router.push('/dashboard');
+const login = async () => {
+    try {
+        // Gọi API login đã tạo ở bước trên
+        // Laravel Sanctum yêu cầu CSRF token trước
+        await axios.get('/sanctum/csrf-cookie');
+        
+        const response = await axios.post('/api/login', {
+            user_id: userId.value,
+            password: password.value
+        });
+
+        const data = response.data;
+        
+        // --- LOGIC QUAN TRỌNG ---
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('userRole', 'Admin'); // Ví dụ
+
+        // Lưu trạng thái persistent
+        localStorage.setItem('isPersistent', data.is_persistent);
+
+        if (!data.is_persistent) {
+            // Nếu có thời hạn -> Tính toán mốc thời gian hết hạn (Timestamp hiện tại + lifetime)
+            const expiryTime = new Date().getTime() + data.session_expires_in_ms;
+            localStorage.setItem('sessionExpiry', expiryTime);
+        } else {
+            // Nếu vô hạn -> Xóa expiry cũ để tránh logic sai
+            localStorage.removeItem('sessionExpiry');
+        }
+
+        router.push('/dashboard');
+
+    } catch (error) {
+        if (error.response && error.response.status === 422) {
+            // Hiển thị lỗi validate hoặc lỗi khóa tài khoản (Too many attempts)
+            errorMessage.value = error.response.data.message || 'Login failed';
+        } else {
+             console.error(error);
+        }
+    }
 };
 </script>
