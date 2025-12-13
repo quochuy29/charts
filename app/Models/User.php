@@ -18,9 +18,14 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'user_id', // Thay đổi
+        'display_name',
         'email',
         'password',
+        'role',
+        'is_persistent_login',
+        'login_attempts', // Mới
+        'locked_until',   // Mới
     ];
 
     /**

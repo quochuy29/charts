@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('mst_production_plan', function (Blueprint $table) {
             $table->id();
-            $table->bigInt('factory_id');
+            $table->bigInteger('factory_id');
             $table->integer('fiscal_year');
             $table->tinyInteger('month')->unsigned();
             $table->integer('quantity')->default(0);

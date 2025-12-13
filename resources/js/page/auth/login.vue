@@ -12,12 +12,12 @@
 
       <form @submit.prevent="login" class="space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID (Email)</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID:</label>
           <input v-model="email" type="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" placeholder="name@toyota.com" required>
         </div>
         
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">パスワード:</label>
           <input v-model="password" type="password" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-zinc-900 focus:border-transparent outline-none transition-all" required>
         </div>
 
