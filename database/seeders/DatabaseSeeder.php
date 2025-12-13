@@ -21,5 +21,9 @@ class DatabaseSeeder extends Seeder
             'display_name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        $this->call([
+            MstEquipmentSeeder::class,
+        ]);
     }
 }
