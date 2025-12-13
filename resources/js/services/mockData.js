@@ -45,20 +45,30 @@ export const initialTreeData = [
 ];
 
 
-export const mockMenuData = reactive([
+export const mockTreeData = reactive([
     {
-        id: 'f1', name: '第1工場', type: 'factory', isVisible: true,
+        id: 'line-1', name: '第1ライン', type: 'line', isVisible: true,
         children: [
             {
-                id: 'l1', name: '組立ラインA', type: 'line', isVisible: true,
+                id: 'fac-1', name: '塗装工程', type: 'facility', isVisible: true,
                 children: [
-                    { id: 'p1', name: '溶接工程', type: 'process', isVisible: true },
-                    { id: 'p2', name: '塗装工程', type: 'process', isVisible: true }
+                    {
+                        id: 'util-1', name: '電気', type: 'utility', isVisible: true,
+                        children: [
+                            { id: 'eq-1', name: '乾燥炉 A', type: 'equipment', isVisible: true },
+                            { id: 'eq-2', name: '乾燥炉 B', type: 'equipment', isVisible: true }
+                        ]
+                    },
+                    {
+                        id: 'util-2', name: '水', type: 'utility', isVisible: true,
+                        children: []
+                    }
                 ]
-            }
+            },
+            { id: 'fac-2', name: '組立工程', type: 'facility', isVisible: true, children: [] }
         ]
     },
-    { id: 'f2', name: '第2工場', type: 'factory', isVisible: true, children: [] }
+    { id: 'line-2', name: '第2ライン', type: 'line', isVisible: true, children: [] }
 ]);
 
 // 2. Users
@@ -83,30 +93,40 @@ export const mockProductionPlans = reactive({
     }
 });
 
-// 4. Charts
-export const generateChartData = (period) => {
-    const count = period === 'day' ? 24 : (period === 'month' ? 30 : 12);
-    const labels = Array.from({ length: count }, (_, i) => i + 1);
+// 3. Chart Data Generator (Update logic cho Comparison & Shop)
+export const generateChartData = (period, unit, showTarget) => {
+    // Logic sinh dữ liệu ngẫu nhiên (giữ nguyên logic cũ hoặc nâng cấp)
+    // Trả về { labels, datasets }
+    let count = 24;
+    let labelPrefix = '';
+    if (period === 'day') { count = 24; labelPrefix = ':00'; }
+    else if (period === 'week') { count = 7; labelPrefix = '日'; }
+    else if (period === 'month') { count = 31; labelPrefix = '日'; }
+    else if (period === 'year') { count = 12; labelPrefix = '月'; }
+
+    const labels = Array.from({ length: count }, (_, i) => `${i + 1}${labelPrefix}`);
+    const data1 = Array.from({ length: count }, () => Math.floor(Math.random() * 100) + 50);
     
-    return {
-        labels: labels,
-        datasets: [
-            {
-                label: '実績 (Actual)',
-                backgroundColor: '#ef4444', 
-                borderColor: '#ef4444',
-                data: Array.from({ length: count }, () => Math.floor(Math.random() * 500) + 100),
-                borderWidth: 1
-            },
-            {
-                label: '目標 (Target)',
-                backgroundColor: '#3b82f6',
-                borderColor: '#3b82f6',
-                data: Array.from({ length: count }, () => 400),
-                type: 'line',
-                borderDash: [5, 5],
-                pointRadius: 0
-            }
-        ]
-    };
+    const datasets = [
+        {
+            label: '実績 (Actual)',
+            backgroundColor: '#2563eb', // Blue
+            borderColor: '#2563eb',
+            data: data1,
+            tension: 0.3
+        }
+    ];
+
+    if (showTarget) {
+        datasets.push({
+            label: '目標 (Target)',
+            backgroundColor: '#ef4444', // Red
+            borderColor: '#ef4444',
+            data: data1.map(v => v * 1.2),
+            borderDash: [5, 5],
+            pointRadius: 0
+        });
+    }
+
+    return { labels, datasets };
 };
