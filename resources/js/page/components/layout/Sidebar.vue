@@ -102,7 +102,7 @@
                 :key="item.id"
                 :node="item"
                 :depth="0"
-                :selectedNode="selectedNode"
+                :current-query="route.query"
                 :isCollapsed="isCollapsed"
                 @select="handleNodeSelect"
             />
@@ -117,23 +117,22 @@
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Calendar, Users, Database, BarChart3 } from 'lucide-vue-next';
-import TreeItem from './TreeItem.vue'; // Đảm bảo bạn đã tạo file này
+import TreeItem from './TreeItem.vue'; 
 import axios from 'axios';
 
 const props = defineProps({
     mode: String,
-    selectedNode: Object,
+    selectedNode: Object, // Prop này có thể không cần thiết nữa nếu dùng URL query
     isCollapsed: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['toggle-sidebar', 'update:selectedNode']);
 const router = useRouter();
-const route = useRoute();
+const route = useRoute(); // Cần thiết để lấy query param
 
 const treeData = ref([]);
 const loading = ref(false);
 
-// Hàm gọi API lấy Tree
 const fetchTreeData = async () => {
     loading.value = true;
     try {
@@ -146,18 +145,17 @@ const fetchTreeData = async () => {
     }
 };
 
-// Xử lý khi chọn node lá (Equipment/Line...)
 const handleNodeSelect = (node) => {
     // Logic ánh xạ item_type sang query param
     let type = 'equipment';
     if(node.item_type === 1) type = 'line';
     else if(node.item_type === 2) type = 'facility';
     else if(node.item_type === 3) type = 'utility';
-    // item_type === 4 là equipment (mặc định)
+    // item_type === 4 là equipment
     
+    // Cập nhật URL. Khi URL đổi -> route.query đổi -> TreeItem sẽ tự đổi màu active
     router.push({ path: '/dashboard', query: { [type]: node.id } });
     
-    // Auto close sidebar on mobile
     handleMobileClick();
 };
 
