@@ -130,3 +130,54 @@ export const generateChartData = (period, unit, showTarget) => {
 
     return { labels, datasets };
 };
+// resources/js/mockData.js
+
+// 1. Danh sách thiết bị (Cột bên trái)
+const mockFacilities = [
+  { id: 1, name: '1ライン > 工場' },
+  { id: 2, name: '1ライン > 工場 > 電気' },
+  { id: 3, name: '1ライン > 工場 > ガス > ガス' },
+  { id: 4, name: '2ライン > 工場' },
+  { id: 5, name: '2ライン > 工場 > 電気' },
+];
+
+// 2. Danh sách loại biểu đồ (Cột bên phải)
+const mockGraphTypes = [
+  { id: 'cost_co2', name: 'コスト/CO2' },
+  { id: 'unit_co2', name: '台当たりCO2排出量' }, // Lượng thải CO2 trên mỗi đơn vị
+  { id: 'co2_emission', name: 'CO2排出量' },      // Lượng thải CO2
+  { id: 'usage_trend', name: '使用量推移' },      // Xu hướng sử dụng
+];
+
+// 3. Cấu hình hiện tại của User (4 vị trí)
+// Position: 0=TopLeft, 1=TopRight, 2=BottomLeft, 3=BottomRight
+let userHomeConfig = [
+  { positionId: 0, label: 'Graph#1: 左上', facilityId: 1, graphTypeId: 'cost_co2' },
+  { positionId: 1, label: 'Graph#2: 右上', facilityId: 2, graphTypeId: 'unit_co2' },
+  { positionId: 2, label: 'Graph#3: 左下', facilityId: 3, graphTypeId: 'co2_emission' },
+  { positionId: 3, label: 'Graph#4: 右下', facilityId: 2, graphTypeId: 'usage_trend' },
+];
+
+// API: Lấy danh sách options và config hiện tại
+export const fetchHomeSettings = () => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        facilities: mockFacilities,
+        graphTypes: mockGraphTypes,
+        config: JSON.parse(JSON.stringify(userHomeConfig))
+      });
+    }, 300);
+  });
+};
+
+// API: Lưu config
+export const updateHomeSettings = (newConfig) => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      userHomeConfig = newConfig; // Lưu vào biến tạm
+      console.log("MockAPI Saved:", newConfig);
+      resolve({ success: true });
+    }, 500);
+  });
+};

@@ -23,6 +23,24 @@
         </div>
         
         <nav class="space-y-1">
+          <router-link to="/home" 
+            class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
+            :class="[
+                $route.path === '/home' ? 'bg-blue-50 text-blue-700 font-medium' : '',
+                isCollapsed ? 'justify-center' : ''
+            ]"
+            :title="isCollapsed ? 'ホーム' : ''"
+            @click="handleMobileClick"
+          >
+            <LayoutDashboard class="w-5 h-5 text-slate-500 group-hover:text-slate-900 shrink-0 transition-colors" /> 
+            <span 
+                class="whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
+                :class="isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-3'"
+            >
+                ホーム
+            </span>
+          </router-link>
+
           <router-link to="/production-planning" 
             class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
             :class="[
@@ -116,19 +134,20 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Calendar, Users, Database, BarChart3 } from 'lucide-vue-next';
+// ADDED: LayoutDashboard icon
+import { Calendar, Users, Database, BarChart3, LayoutDashboard } from 'lucide-vue-next';
 import TreeItem from './TreeItem.vue'; 
 import axios from 'axios';
 
 const props = defineProps({
     mode: String,
-    selectedNode: Object, // Prop này có thể không cần thiết nữa nếu dùng URL query
+    selectedNode: Object,
     isCollapsed: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(['toggle-sidebar', 'update:selectedNode']);
 const router = useRouter();
-const route = useRoute(); // Cần thiết để lấy query param
+const route = useRoute();
 
 const treeData = ref([]);
 const loading = ref(false);
@@ -136,6 +155,7 @@ const loading = ref(false);
 const fetchTreeData = async () => {
     loading.value = true;
     try {
+        // Mock data logic or real API
         const response = await axios.get('/api/equipments/tree');
         treeData.value = response.data;
     } catch (error) {
@@ -146,14 +166,11 @@ const fetchTreeData = async () => {
 };
 
 const handleNodeSelect = (node) => {
-    // Logic ánh xạ item_type sang query param
     let type = 'equipment';
     if(node.item_type === 1) type = 'line';
     else if(node.item_type === 2) type = 'facility';
     else if(node.item_type === 3) type = 'utility';
-    // item_type === 4 là equipment
     
-    // Cập nhật URL. Khi URL đổi -> route.query đổi -> TreeItem sẽ tự đổi màu active
     router.push({ path: '/dashboard', query: { [type]: node.id } });
     
     handleMobileClick();

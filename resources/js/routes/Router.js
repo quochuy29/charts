@@ -4,6 +4,7 @@ import Login from '../page/auth/login.vue';
 const routes = [
     { path: '/login', name: 'Login', component: Login },
     // Lazy load các trang mới
+    { path: '/home', name: 'home', component: () => import('../page/Home.vue') },
     { path: '/dashboard', name: 'dashboard', component: () => import('../page/Dashboard.vue') },
     { path: '/user-management', name: 'user-management', component: () => import('../page/UserManagement.vue') },
     { path: '/production-planning', name: 'production-planning', component: () => import('../page/ProductionPlanning.vue') },
