@@ -15,7 +15,7 @@
                 
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-4">
-                        <button @click="toggleSidebar" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&amp;_svg]:pointer-events-none [&amp;_svg]:size-4 [&amp;_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-7 w-7">
+                        <button @click="toggleSidebar" class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-7 w-7">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-panel-left">
                                 <rect width="18" height="18" x="3" y="3" rx="2"></rect>
                                 <path d="M9 3v18"></path>
@@ -27,8 +27,8 @@
                 </div>
 
                 <div class="flex items-center gap-4 relative" ref="dropdownRef">
-                    <button @click="toggleDropdown" class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 gap-2 transition-opacity">
-                        <User className="h-4 w-4" />
+                    <button @click="toggleDropdown" class="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 gap-2 transition-opacity">
+                        <User class="h-4 w-4" />
                         <div class="text-right hidden sm:block">
                             <div class="text-sm font-semibold">ユーザー: {{ displayName }}</div>
                         </div>
@@ -40,7 +40,7 @@
                                 <p class="text-xs text-gray-500">アカウント</p>
                             </div>
                             <button @click="handleLogout" class="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors">
-                                <p class="flex items-center text-sm font-medium text-gray-900 truncate"><LogOut className="mr-2 h-4 w-4" /><span class="ml-2">ログアウト</span></p>
+                                <p class="flex items-center text-sm font-medium text-gray-900 truncate"><LogOut class="mr-2 h-4 w-4" /><span class="ml-2">ログアウト</span></p>
                             </button>
                         </div>
                     </transition>
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-    import { computed, ref, watch } from 'vue'; // Thêm watch
+    import { computed, ref, watch } from 'vue';
     import { useRoute, useRouter } from 'vue-router';
     import { User, LogOut } from 'lucide-vue-next';
     import Sidebar from './components/layout/Sidebar.vue';
@@ -65,15 +65,11 @@
     const route = useRoute();
     const router = useRouter();
     
-    // Logic cũ: const isLoginPage = computed(() => route.path === '/login');
-    // CHỈNH SỬA 3: Logic mới chặt chẽ hơn để quyết định hiển thị Layout (Sidebar + Header)
+    // --- CẬP NHẬT: Logic check hiển thị layout dựa vào Access Token ---
     const shouldShowLayout = computed(() => {
-        // 1. Nếu đang ở trang Login -> Ẩn
         if (route.path === '/login') return false;
-        
-        // 2. Nếu chưa có xác thực trong LocalStorage -> Ẩn (Tránh render khi đang chờ Redirect)
-        const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-        return isAuthenticated;
+        // Kiểm tra sự tồn tại của token
+        return !!localStorage.getItem('access_token');
     });
 
     const userRole = localStorage.getItem('userRole') || 'Guest';
@@ -92,36 +88,30 @@
     const displayName = ref('Loading...');
 
     const fetchUserProfile = async () => {
-        // CHỈNH SỬA 4: Double check trước khi gọi API
-        const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
-        if (!isAuthenticated || route.path === '/login') return;
+        // --- CẬP NHẬT: Check token trước khi gọi API ---
+        const token = localStorage.getItem('access_token');
+        if (!token || route.path === '/login') return;
 
         try {
             const response = await axios.get('/api/get-user-login');
             displayName.value = response.data.user.display_name;
         } catch (error) {
             console.error('Failed to fetch user profile:', error);
-            // Nếu lỗi 401 (Unauthorized), có thể force logout tại đây nếu muốn
-            if (error.response && error.response.status === 401) {
-                handleLogout();
-            }
+            displayName.value = 'Unknown User';
         }
     };
 
-    // CHỈNH SỬA 5: Thay onMounted bằng watch để xử lý đúng luồng Login -> Dashboard
-    // watch sẽ chạy mỗi khi URL thay đổi
+    // Watch path để load user profile khi chuyển trang hoặc reload
     watch(
         () => route.path,
         (newPath) => {
-            // Nếu đường dẫn mới KHÔNG PHẢI là login, thì thử load data user
             if (newPath !== '/login') {
                 fetchUserProfile();
             }
         },
-        { immediate: true } // Chạy ngay lần đầu tiên component mount
+        { immediate: true }
     );
 
-    // --- LOGIC DROPDOWN & LOGOUT (Giữ nguyên) ---
     const isDropdownOpen = ref(false);
     const dropdownRef = ref(null);
 
@@ -141,10 +131,15 @@
         } catch (error) {
             console.error('Logout error', error);
         } finally {
+            // --- CẬP NHẬT: Xóa đúng các key token ---
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('userRole');
+            
+            // Xóa dọn dẹp các key cũ nếu còn
             localStorage.removeItem('isAuthenticated');
             localStorage.removeItem('isPersistent');
             localStorage.removeItem('sessionExpiry');
-            localStorage.removeItem('userRole');
             
             isDropdownOpen.value = false;
             router.push('/login');

@@ -186,6 +186,7 @@ import { ref, computed, watch, onMounted, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { format, parseISO, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import axios from 'axios'; // Import Axios
 import { 
     Calendar as CalendarIcon, 
     X as XIcon, 
@@ -194,32 +195,14 @@ import {
     Download as DownloadIcon 
 } from 'lucide-vue-next';
 
-// Use wrapper components
 import LineChart from './components/charts/type/Line.vue';
 import BarChart from './components/charts/type/Bar.vue';
-import { mockTreeData, fetchDashboardChartData } from '../services/mockData';
+import { fetchDashboardChartData } from '../services/mockData';
 
 const route = useRoute();
 
-// --- CONSTANTS & STATE (Giữ nguyên) ---
-const tabs = [
-    { label: '使用量推移', value: 'period' },
-    { label: '設備比較', value: 'comparison' },
-    { label: 'コスト/CO2', value: 'shop' }
-];
-
-const periods = [
-    { label: '日', value: 'day' }, { label: '週', value: 'week' },
-    { label: '月', value: 'month' }, { label: '年', value: 'year' }
-];
-
-const shopDisplayTypes = [
-    { label: 'コスト', value: 'cost' }, 
-    { label: 'CO2排出量', value: 'co2' },
-    { label: '台当たりコスト', value: 'cost_per_unit' }, 
-    { label: '台当たりCO2排出量', value: 'co2_per_unit' }
-];
-
+// --- STATE ---
+const treeData = ref([]); // State lưu trữ cây thiết bị từ API
 const activeTab = ref('period');
 const currentPeriodType = ref('day');
 const currentDate = ref(new Date());
@@ -230,59 +213,98 @@ const showTarget = ref(true);
 const shopDisplayType = ref('cost');
 const isLoading = ref(false);
 
+// Constants
+const tabs = [
+    { label: '使用量推移', value: 'period' },
+    { label: '設備比較', value: 'comparison' },
+    { label: 'コスト/CO2', value: 'shop' }
+];
+const periods = [
+    { label: '日', value: 'day' }, { label: '週', value: 'week' },
+    { label: '月', value: 'month' }, { label: '年', value: 'year' }
+];
+const shopDisplayTypes = [
+    { label: 'コスト', value: 'cost' }, 
+    { label: 'CO2排出量', value: 'co2' },
+    { label: '台当たりコスト', value: 'cost_per_unit' }, 
+    { label: '台当たりCO2排出量', value: 'co2_per_unit' }
+];
+
+// Modals State
 const isAxisModalOpen = ref(false);
 const isDataTableOpen = ref(false);
-const axisSettings = reactive({
-    yLeftMin: '', yLeftMax: '',
-    yRightMin: '', yRightMax: ''
-});
-
+const axisSettings = reactive({ yLeftMin: '', yLeftMax: '', yRightMin: '', yRightMax: '' });
 const chartData = ref({ labels: [], datasets: [] });
 
-// --- COMPUTED PROPERTIES ---
+// --- API: FETCH TREE DATA ---
+const fetchTreeData = async () => {
+    try {
+        // Gọi API lấy cây thiết bị
+        const response = await axios.get('/api/equipments/tree');
+        treeData.value = response.data; // Giả sử API trả về mảng root nodes
+    } catch (error) {
+        console.error('Failed to load equipment tree:', error);
+    }
+};
 
+// --- COMPUTED: PROCESS NAME (RECURSIVE PATH) ---
+// Hàm đệ quy tìm đường dẫn đến node có ID cho trước
+const findPathToNode = (nodes, targetId, currentPath = []) => {
+    for (const node of nodes) {
+        // Tạo đường dẫn mới bao gồm node hiện tại
+        const newPath = [...currentPath, node.name];
+        
+        // Nếu tìm thấy ID (so sánh lỏng lẻo vì query param là string)
+        if (node.id == targetId) {
+            return newPath;
+        }
+        
+        // Nếu có con, tìm tiếp
+        if (node.children && node.children.length > 0) {
+            const foundPath = findPathToNode(node.children, targetId, newPath);
+            if (foundPath) return foundPath;
+        }
+    }
+    return null;
+};
+
+const processName = computed(() => {
+    // 1. Xác định ID cần tìm từ URL (ưu tiên equipment > utility > facility)
+    const targetId = route.query.equipment || route.query.utility || route.query.facility;
+    
+    // Nếu không có ID hoặc chưa tải xong Tree -> Mặc định
+    if (!targetId || treeData.value.length === 0) return '全工程 (All Process)';
+
+    // 2. Tìm đường dẫn tên
+    const pathArray = findPathToNode(treeData.value, targetId);
+    
+    // 3. Ghép chuỗi với dấu gạch dưới
+    if (pathArray) {
+        return pathArray.join('_'); // Ví dụ: "1ライン_工場_電気"
+    }
+    
+    return 'Unknown Process'; // Trường hợp có ID nhưng không tìm thấy trong Tree
+});
+
+// --- CHART LOGIC & HELPERS (Giữ nguyên) ---
 const shouldUseBarChart = computed(() => {
     return activeTab.value === 'comparison' || activeTab.value === 'shop';
 });
 
-const processName = computed(() => {
-    const { facility, utility, equipment } = route.query;
-    const findName = (nodes, id) => {
-        for (const node of nodes) {
-            if (node.id === id) return node.name;
-            if (node.children) {
-                const found = findName(node.children, id);
-                if (found) return found;
-            }
-        }
-        return null;
-    };
-
-    if (equipment) return findName(mockTreeData, equipment) || 'Equipment';
-    if (utility) return findName(mockTreeData, utility) || 'Utility';
-    if (facility) return findName(mockTreeData, facility) || 'Facility';
-    return '全工程 (All Process)';
-});
-
 const getChartTitle = computed(() => {
     const periodLabel = getDateDisplay(currentDate.value, currentPeriodType.value);
-    
     if (activeTab.value === 'comparison') return `設備比較 (${periodLabel})`;
     if (activeTab.value === 'shop') {
         const typeLabel = shopDisplayTypes.find(t => t.value === shopDisplayType.value)?.label;
         return `${typeLabel} (${periodLabel})`;
     }
-    
     let title = `期報: ${periodLabel}`;
-    if (compareDate.value) {
-        title += ` vs ${getDateDisplay(compareDate.value, currentPeriodType.value)}`;
-    }
+    if (compareDate.value) title += ` vs ${getDateDisplay(compareDate.value, currentPeriodType.value)}`;
     return title;
 });
 
 const chartOptions = computed(() => {
     const isShop = activeTab.value === 'shop';
-    
     return {
         responsive: true,
         maintainAspectRatio: false,
@@ -301,10 +323,7 @@ const chartOptions = computed(() => {
             }
         },
         scales: {
-            x: {
-                stacked: isShop,
-                grid: { display: false }
-            },
+            x: { stacked: isShop, grid: { display: false } },
             y: {
                 stacked: isShop,
                 beginAtZero: true,
@@ -326,7 +345,6 @@ const chartOptions = computed(() => {
     };
 });
 
-// --- HELPER FUNCTIONS ---
 const getInputType = (type) => {
     if (type === 'week') return 'week';
     if (type === 'month') return 'month';
@@ -361,21 +379,13 @@ const updateDate = (val, target) => {
     } else {
         d = null;
     }
-
     if (target === 'date') { currentDate.value = d; pickerValue.value = val; }
     else { compareDate.value = d; comparePickerValue.value = val; }
 };
 
-const clearCompare = () => {
-    compareDate.value = null;
-    comparePickerValue.value = '';
-};
+const clearCompare = () => { compareDate.value = null; comparePickerValue.value = ''; };
+const applyAxisSettings = () => { isAxisModalOpen.value = false; };
 
-const applyAxisSettings = () => {
-    isAxisModalOpen.value = false;
-};
-
-// --- DATA FETCHING ---
 const generateChartData = async () => {
     isLoading.value = true;
     try {
@@ -395,13 +405,14 @@ const generateChartData = async () => {
     }
 };
 
-// --- WATCHERS & LIFECYCLE ---
 watch([activeTab, currentPeriodType, currentDate, compareDate, showTarget, shopDisplayType, () => route.query], () => {
     if (activeTab.value === 'comparison') compareDate.value = null;
     generateChartData();
 }, { deep: true });
 
 onMounted(() => {
+    // Gọi cả 2 API khi mount
+    fetchTreeData(); 
     generateChartData();
 });
 </script>

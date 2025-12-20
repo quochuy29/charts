@@ -22,39 +22,38 @@ class AuthController extends Controller
     }
 
     public function login(LoginRequest $request)
-    {
-        // 1. Validate
-        $request->authenticate();
-        $user = User::where('user_id', $request->user_id)->first();
+{
+    $request->authenticate();
+    
+    // Lấy user
+    $user = User::where('user_id', $request->user_id)->first();
 
-        // 2. Xử lý Logic thời hạn (Persistent)
-        $isPersistent = (bool) $user->is_persistent_login;
+    // --- CẬP NHẬT LOGIC PERSISTENT ---
+    // Kiểm tra user có role ID = 3 (display_user) hay không
+    $isPersistent = $user->isPersistent(); 
 
-        // Cấu hình thời gian
-        // Access Token: Luôn ngắn (ví dụ 2 tiếng) để bảo mật
-        $accessTokenExpiration = Carbon::now()->addMinutes(config('sanctum.expiration', 120));
-        
-        // Refresh Token: Dài (5 năm nếu persistent, hoặc 1 ngày nếu không)
-        $refreshTokenExpiration = $isPersistent 
-            ? Carbon::now()->addYears(5) 
-            : Carbon::now()->addDay();
+    // Access Token: Ngắn hạn (ví dụ 2 tiếng)
+    $accessTokenExpiration = Carbon::now()->addMinutes(config('sanctum.expiration', 120));
+    
+    // Refresh Token: 
+    // Nếu là display_user (ID 3) -> 5 năm
+    // Nếu là admin/user thường -> 1 ngày
+    $refreshTokenExpiration = $isPersistent 
+        ? Carbon::now()->addYears(5) 
+        : Carbon::now()->addDay();
 
-        // 3. Tạo Access Token (Ngắn hạn) - Chỉ có quyền truy cập API
-        $accessToken = $user->createToken('access_token', ['access-api'], $accessTokenExpiration);
+    // Tạo Tokens
+    $accessToken = $user->createToken('access_token', ['access-api'], $accessTokenExpiration);
+    $refreshToken = $user->createToken('refresh_token', ['issue-access-token'], $refreshTokenExpiration);
 
-        // 4. Tạo Refresh Token (Dài hạn) - Chỉ có quyền cấp lại token
-        $refreshToken = $user->createToken('refresh_token', ['issue-access-token'], $refreshTokenExpiration);
-
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => $user,
-            // Trả về cả 2 token
-            'access_token' => $accessToken->plainTextToken,
-            'refresh_token' => $refreshToken->plainTextToken,
-            'token_type' => 'Bearer',
-            'expires_in' => $accessTokenExpiration->timestamp, // FE có thể dùng để căn thời gian refresh chủ động
-        ]);
-    }
+    return response()->json([
+        'message' => 'Login successful',
+        'user' => $user->load('roles'), // Trả về kèm role để FE biết
+        'access_token' => $accessToken->plainTextToken,
+        'refresh_token' => $refreshToken->plainTextToken,
+        'token_type' => 'Bearer',
+    ]);
+}
 
     /**
      * Làm mới Token (Rotation)
@@ -81,7 +80,7 @@ class AuthController extends Controller
         $currentToken->delete();
 
         // 2. Xác định lại thời gian (logic giống lúc login)
-        $isPersistent = (bool) $user->is_persistent_login;
+        $isPersistent = $user->isPersistent();
         
         $accessTokenExpiration = Carbon::now()->addMinutes(config('sanctum.expiration', 120));
         $refreshTokenExpiration = $isPersistent 

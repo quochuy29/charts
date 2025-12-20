@@ -2,14 +2,19 @@ import axios from 'axios';
 
 window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-window.axios.defaults.withCredentials = true; // QUAN TRỌNG: Để gửi cookie session/remember_token
 window.axios.defaults.baseURL = 'http://localhost:8080'; // URL Backend của bạn
 
 // --- THÊM INTERCEPTOR ---
 // Tự động gắn token từ LocalStorage vào Header
 // 1. Request Interceptor: Luôn gắn Access Token
+// --- 1. Request Interceptor ---
 window.axios.interceptors.request.use(
     (config) => {
+        // QUAN TRỌNG: Nếu đang gọi API refresh-token, KHÔNG được ghi đè bằng access_token
+        if (config.url && config.url.includes('/refresh-token')) {
+            return config;
+        }
+
         const token = localStorage.getItem('access_token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -19,7 +24,7 @@ window.axios.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Flag để tránh loop vô hạn khi refresh token lỗi
+// Flag tránh loop
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -34,7 +39,7 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// 2. Response Interceptor: Xử lý 401 Unauthorized
+// --- 2. Response Interceptor ---
 window.axios.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -43,7 +48,6 @@ window.axios.interceptors.response.use(
         // Nếu lỗi 401 và chưa thử refresh lần nào
         if (error.response && error.response.status === 401 && !originalRequest._retry) {
             
-            // Nếu đang trong quá trình refresh, đưa request vào hàng đợi
             if (isRefreshing) {
                 return new Promise(function(resolve, reject) {
                     failedQueue.push({resolve, reject});
@@ -58,17 +62,15 @@ window.axios.interceptors.response.use(
             originalRequest._retry = true;
             isRefreshing = true;
 
-            // Lấy Refresh Token từ storage
             const refreshToken = localStorage.getItem('refresh_token');
 
             if (!refreshToken) {
-                // Không có refresh token -> Logout thật
                 return Promise.reject(error);
             }
 
             try {
-                // Gọi API refresh bằng Refresh Token
-                // Lưu ý: Cần set Authorization header thủ công bằng Refresh Token cho request này
+                // Gọi API refresh
+                // Header Authorization ở đây sẽ được giữ nguyên nhờ logic mới trong Request Interceptor
                 const response = await axios.post('/api/refresh-token', {
                     refresh_token: refreshToken 
                 }, {
@@ -77,26 +79,28 @@ window.axios.interceptors.response.use(
 
                 const { access_token, refresh_token: newRefreshToken } = response.data;
 
-                // Cập nhật token mới vào Storage
+                // Lưu token mới
                 localStorage.setItem('access_token', access_token);
-                localStorage.setItem('refresh_token', newRefreshToken); // Rotation: Refresh token cũng được làm mới
+                localStorage.setItem('refresh_token', newRefreshToken);
 
                 // Cập nhật header mặc định
                 axios.defaults.headers.common['Authorization'] = 'Bearer ' + access_token;
                 
-                // Xử lý hàng đợi các request bị pending
+                // Xử lý hàng đợi
                 processQueue(null, access_token);
                 
-                // Thử lại request ban đầu với token mới
+                // Thử lại request ban đầu
                 originalRequest.headers['Authorization'] = 'Bearer ' + access_token;
                 return axios(originalRequest);
 
             } catch (refreshError) {
-                // Nếu refresh cũng lỗi (ví dụ hết hạn 5 năm hoặc bị revoke) -> Logout triệt để
                 processQueue(refreshError, null);
+                // Xóa sạch token nếu refresh thất bại
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 localStorage.removeItem('userRole');
+                
+                // Redirect về login
                 window.location.href = '/login';
                 return Promise.reject(refreshError);
             } finally {
