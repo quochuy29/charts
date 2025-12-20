@@ -2,24 +2,52 @@
     <div class="p-6 bg-gray-50 min-h-full font-sans text-gray-800">
         <div class="flex items-center justify-between mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900">ホーム</h1>
+                <h1 class="text-3xl font-bold text-gray-900">ホーム (Home)</h1>
                 <p class="text-sm text-gray-500 mt-1">{{ formattedMonth }}のデータ</p>
             </div>
-            <button @click="openSettings" class="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
-                <Settings class="w-5 h-5" />
+            
+            <button @click="openSettings" class="flex items-center gap-2 px-4 py-2 bg-white border rounded-lg hover:bg-gray-100 shadow-sm transition-colors text-sm font-medium text-gray-700">
+                <Settings class="w-4 h-4" />
+                表示設定
             </button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div v-for="(graph, index) in displayGraphs" :key="index"
-                class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[350px]">
-                <div class="mb-4">
-                    <h3 class="font-bold text-lg text-gray-800 truncate">{{ graph.title }}</h3>
+        <div v-if="isLoading" class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-150px)]">
+            <div v-for="i in 4" :key="i" class="bg-white rounded-xl shadow-sm border p-4 animate-pulse">
+                <div class="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                <div class="h-full bg-gray-100 rounded"></div>
+            </div>
+        </div>
+
+        <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
+            <div 
+                v-for="(chartItem, index) in renderedCharts" 
+                :key="index"
+                class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col h-[400px]"
+            >
+                <div class="mb-4 flex justify-between items-start border-b pb-2">
+                    <div>
+                        <span class="text-xs text-gray-400 font-mono block">{{ chartItem.positionLabel }}</span>
+                        <h3 class="font-bold text-lg text-gray-800 truncate" :title="chartItem.title">
+                            {{ chartItem.title }}
+                        </h3>
+                    </div>
+                    <span class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded">
+                        {{ chartItem.type === 'bar' ? 'Bar Chart' : 'Line Chart' }}
+                    </span>
                 </div>
 
                 <div class="flex-1 relative w-full min-h-0">
-                    <BarChart v-if="graph.type === 'bar'" :data="graph.data" :options="commonOptions" />
-                    <LineChart v-else :data="graph.data" :options="commonOptions" />
+                    <BarChart 
+                        v-if="chartItem.type === 'bar'" 
+                        :data="chartItem.data" 
+                        :options="commonOptions" 
+                    />
+                    <LineChart 
+                        v-else 
+                        :data="chartItem.data" 
+                        :options="commonOptions" 
+                    />
                 </div>
             </div>
         </div>
@@ -35,57 +63,64 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { Settings } from 'lucide-vue-next';
+
+// Imports Components
 import LineChart from './components/charts/type/Line.vue';
 import BarChart from './components/charts/type/Bar.vue';
-import HomeSettingsModal from './components/HomeSettingsModal.vue'; // Điều chỉnh đường dẫn nếu cần
-import { fetchHomeSettings } from '../services/mockData';
+import HomeSettingsModal from './components/HomeSettingsModal.vue';
+
+// Imports Data Services
+import { fetchHomeSettings, generateMockChartData } from '../services/mockData';
 
 // --- State ---
 const currentMonth = ref(new Date());
-const graphConfigs = ref([]); // Loaded from DB (mock)
-const graphDataMap = ref({});
+const showSettings = ref(false);
+const isLoading = ref(true);
 
-// --- Computed ---
+// Dữ liệu cấu hình lấy từ API
+const dashboardConfig = ref([]);
+const facilitiesMap = ref([]);
+const graphTypesMap = ref([]);
+
+// --- Computed Properties ---
 const formattedMonth = computed(() => {
     return format(currentMonth.value, "yyyy年MM月", { locale: ja });
 });
 
-const displayGraphs = computed(() => {
-    // If configs exist, map them to chart data structure
-    if (graphConfigs.value.length > 0) {
-        return graphConfigs.value
-            .filter(config => config.sensor && config.graph_type)
-            .map(config => {
-                const title = `${config.sensor.display_label} - ${config.graph_type}`;
-                const isBar = ["台当たりコスト", "台当たりCO2排出量", "設備別使用量比較"].includes(config.graph_type);
+/**
+ * Biến đổi từ dashboardConfig (IDs) -> Dữ liệu hiển thị (Data, Title, Type)
+ */
+const renderedCharts = computed(() => {
+    return dashboardConfig.value.map(slot => {
+        // 1. Tìm tên thiết bị & loại biểu đồ
+        const facility = facilitiesMap.value.find(f => f.id === slot.facilityId);
+        const graphType = graphTypesMap.value.find(t => t.id === slot.graphTypeId);
 
-                return {
-                    title,
-                    type: isBar ? 'bar' : 'line',
-                    data: convertToChartJsData(graphDataMap.value[config.graph_no] || [], isBar)
-                };
-            });
-    }
+        // 2. Tên hiển thị
+        const facilityName = facility ? facility.name : '未設定';
+        const graphName = graphType ? graphType.name : '';
+        const title = `${facilityName} - ${graphName}`;
 
-    // Default Fallback Graphs
-    const defaultItems = [
-        { title: "エネルギー使用量 (kWh/m³)", type: "line" },
-        { title: "コスト (円)", type: "line" },
-        { title: "CO₂排出量 (kg)", type: "line" },
-        { title: "設備別使用量比較", type: "bar" },
-    ];
+        // 3. Xác định loại chart (Bar/Line) dựa trên metadata của mockData
+        // Mặc định là 'bar' nếu không tìm thấy
+        const chartType = graphType?.chartType || 'bar';
 
-    return defaultItems.map(item => ({
-        title: item.title,
-        type: item.type,
-        data: generateDefaultChartData(item.type)
-    }));
+        // 4. Sinh dữ liệu giả (Fake Data)
+        const chartData = generateMockChartData(slot.graphTypeId);
+
+        return {
+            positionLabel: slot.label, // Graph#1: 左上
+            title: title,
+            type: chartType,
+            data: chartData
+        };
+    });
 });
 
-// --- Options ---
+// --- Chart Options (Dùng chung) ---
 const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -112,100 +147,31 @@ const openSettings = () => {
     showSettings.value = true;
 };
 
-// Mocking logic to generate random data (replacing React's generateDefaultData)
-const generateDefaultChartData = (type) => {
-    const start = startOfMonth(currentMonth.value);
-    const end = endOfMonth(currentMonth.value);
-    const days = eachDayOfInterval({ start, end });
-
-    const labels = days.map(day => format(day, "d"));
-    const actualData = days.map(() => Math.round((Math.random() * 200 + 100) * 100) / 100);
-    const targetData = days.map(() => 150.0);
-
-    return {
-        labels,
-        datasets: [
-            {
-                label: '実績',
-                data: actualData,
-                borderColor: type === 'bar' ? '#2563eb' : '#2563eb', // Chart-1 (blue)
-                backgroundColor: type === 'bar' ? '#2563eb' : 'rgba(37, 99, 235, 0.1)',
-                tension: 0.3,
-                borderWidth: 2
-            },
-            {
-                label: '目標',
-                data: targetData,
-                borderColor: '#ef4444', // Chart-2 (red)
-                backgroundColor: '#ef4444',
-                borderDash: [5, 5],
-                tension: 0,
-                borderWidth: 2,
-                pointRadius: 0
-            }
-        ]
-    };
-};
-
-// Helper to convert Recharts data format [{day, actual, target}] to Chart.js
-const convertToChartJsData = (rawData, isBar) => {
-    const labels = rawData.map(d => d.day);
-    const actual = rawData.map(d => d.actual);
-    const target = rawData.map(d => d.target);
-
-    return {
-        labels,
-        datasets: [
-            {
-                label: '実績',
-                data: actual,
-                backgroundColor: isBar ? '#2563eb' : 'transparent',
-                borderColor: '#2563eb',
-                tension: 0.3
-            },
-            {
-                label: '目標',
-                data: target,
-                borderColor: '#ef4444',
-                borderDash: [5, 5],
-                pointRadius: 0
-            }
-        ]
-    };
-};
-
+// Hàm khởi tạo: Load settings từ mockData
 const loadSettings = async () => {
-    // TODO: Implement API call to Laravel backend
-    // const response = await axios.get('/api/settings/home');
-    // graphConfigs.value = response.data.graphs;
-    // generateGraphData();
-
-    // For now, we leave graphConfigs empty to trigger default view
+    isLoading.value = true;
     try {
         const data = await fetchHomeSettings();
-        dashboardConfig.value = data.config;
-        facilitiesMap.value = data.facilities;
-        graphTypesMap.value = data.graphTypes;
+        if (data) {
+            dashboardConfig.value = data.config;
+            facilitiesMap.value = data.facilities;
+            graphTypesMap.value = data.graphTypes;
+        }
     } catch (e) {
-        console.error("Init error", e);
+        console.error("Lỗi tải settings:", e);
+    } finally {
+        isLoading.value = false;
     }
 };
 
-// --- Logic mới cho Setting ---
-const showSettings = ref(false);
-const dashboardConfig = ref([]);
-const facilitiesMap = ref([]);
-const graphTypesMap = ref([]);
-
-// Helpers để hiển thị tên ra ngoài dashboard (vì config chỉ lưu ID)
-const getFacilityName = (id) => facilitiesMap.value.find(f => f.id === id)?.name || 'Unknown';
-const getGraphTypeName = (id) => graphTypesMap.value.find(t => t.id === id)?.name || 'Unknown';
-
+// Callback khi user bấm Save ở Modal
 const onSettingsSaved = (newConfig) => {
-    // Cập nhật lại cấu hình Dashboard ngay lập tức
+    console.log("Cập nhật config mới:", newConfig);
+    // Cập nhật state, Vue sẽ tự động tính toán lại `renderedCharts` nhờ Computed
     dashboardConfig.value = newConfig;
 };
 
+// --- Lifecycle ---
 onMounted(() => {
     loadSettings();
 });
