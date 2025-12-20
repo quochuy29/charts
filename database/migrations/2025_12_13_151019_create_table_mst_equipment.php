@@ -18,8 +18,6 @@ return new class extends Migration
             $table->integer('level');
             $table->bigInteger('parent_id')->nullable();
             $table->integer('item_type')->comment('1:Line 2:Facility 3:Utility 4:Equipment');
-            $table->integer('graph_type')->comment('1:Line 2:bar 3:stacked bar 4: line bar 5: all');
-            $table->longText('calculation_formula')->nullable();
             $table->integer('display_order');
             $table->boolean('is_visibility');
             $table->timestamps();
