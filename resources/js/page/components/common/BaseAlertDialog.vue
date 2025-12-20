@@ -1,22 +1,35 @@
 <template>
     <Teleport to="body">
         <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
-            <div class="relative bg-white p-6 rounded-lg shadow-xl w-[400px] transform transition-all scale-100">
-                <div class="mb-4">
-                    <h3 class="text-lg font-bold text-gray-900">{{ title }}</h3>
-                    <div class="mt-2 text-sm text-gray-500 leading-relaxed">
+            <div 
+                class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
+                @click="$emit('close')"
+            ></div>
+            
+            <div 
+                class="relative bg-white p-6 rounded-lg shadow-lg w-full max-w-[512px] transform transition-all scale-100 border border-gray-200"
+            >
+                <div class="flex flex-col space-y-2 text-center sm:text-left">
+                    <h3 class="text-lg font-semibold text-gray-900 leading-none tracking-tight">
+                        {{ title }}
+                    </h3>
+                    <div class="text-sm text-gray-500">
                         <slot></slot>
                     </div>
                 </div>
-                <div class="mt-6 flex justify-end gap-3">
-                    <button @click="$emit('close')"
-                        class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+
+                <div class="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0">
+                    <button 
+                        @click="$emit('close')"
+                        class="px-4 py-2 border border-gray-200 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-100 hover:text-gray-900 transition-colors focus:outline-none ring-offset-white focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2"
+                    >
                         キャンセル
                     </button>
-                    <button @click="$emit('confirm')"
-                        class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 shadow-sm transition-colors">
-                        削除する
+                    <button 
+                        @click="$emit('confirm')"
+                        class="px-4 py-2 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-900/90 transition-colors shadow-sm focus:outline-none ring-offset-white focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2"
+                    >
+                        削除
                     </button>
                 </div>
             </div>

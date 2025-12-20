@@ -11,18 +11,24 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('t_users', function (Blueprint $table) {
             $table->id();
             $table->string('user_id')->unique();
             $table->string('display_name');
             $table->string('email')->unique();
             $table->string('password');
-            $table->tinyInteger('role');
-            $table->boolean('is_persistent_login');
-            $table->timestamp('email_verified_at')->nullable();
-            $table->integer('login_attempts')->default(0)->after('password');
-            $table->timestamp('locked_until')->nullable()->after('login_attempts');
-            $table->rememberToken();
+            $table->timestamps();
+        });
+
+        Schema::create('m_roles', function (Blueprint $table) {
+            $table->bigInteger('role_code')->comment('1: admin 2: user 3:display user')->unique();
+            $table->string('role_name');
+            $table->timestamps();
+        });
+
+        Schema::create('t_user_roles', function (Blueprint $table) {
+            $table->bigInteger('user_id');
+            $table->bigInteger('role_code');
             $table->timestamps();
         });
 
@@ -47,7 +53,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('t_users');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }

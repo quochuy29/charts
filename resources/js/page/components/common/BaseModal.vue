@@ -1,24 +1,32 @@
 <template>
     <Teleport to="body">
-        <div v-if="isOpen" class="fixed inset-0 z-[100] flex items-center justify-center">
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="$emit('close')"></div>
-
-            <div class="relative bg-white p-6 rounded-lg shadow-xl transform transition-all scale-100"
-                :class="widthClass">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold text-gray-900">{{ title }}</h2>
-                    <button @click="$emit('close')" class="text-gray-400 hover:text-gray-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 6 6 18" />
-                            <path d="m6 6 12 12" />
-                        </svg>
+        <div v-if="isOpen" class="fixed inset-0 z-50 flex items-center justify-center">
+            <div 
+                class="absolute inset-0 bg-black bg-opacity-50 transition-opacity" 
+                @click="$emit('close')"
+            ></div>
+            
+            <div 
+                class="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all z-10 flex flex-col max-h-[90vh]"
+            >
+                <div class="px-6 py-4 border-b flex justify-between items-center shrink-0">
+                    <h3 class="text-lg font-semibold text-gray-900">{{ title }}</h3>
+                    <button 
+                        @click="$emit('close')" 
+                        class="text-gray-400 hover:text-gray-500 focus:outline-none p-1"
+                    >
+                        <X class="w-5 h-5" />
                     </button>
                 </div>
 
-                <slot></slot>
+                <div class="p-6 overflow-y-auto flex-grow">
+                    <slot></slot>
+                </div>
 
-                <div class="mt-6 flex justify-end gap-3">
+                <div 
+                    v-if="$slots.footer" 
+                    class="px-6 py-4 border-t flex justify-end gap-3 shrink-0 bg-gray-50 rounded-b-lg"
+                >
                     <slot name="footer"></slot>
                 </div>
             </div>
@@ -27,13 +35,12 @@
 </template>
 
 <script setup>
-    defineProps({
-        isOpen: Boolean,
-        title: String,
-        widthClass: {
-            type: String,
-            default: 'w-[450px]'
-        }
-    });
-    defineEmits(['close']);
+import { X } from 'lucide-vue-next';
+
+defineProps({
+    isOpen: Boolean,
+    title: { type: String, default: '' }
+});
+
+defineEmits(['close']);
 </script>

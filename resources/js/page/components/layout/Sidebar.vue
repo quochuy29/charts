@@ -24,7 +24,7 @@
         
         <nav class="space-y-1">
           <router-link to="/home" 
-            class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
+            class="text-sm flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
             :class="[
                 $route.path === '/home' ? 'bg-blue-50 text-blue-700 font-medium' : '',
                 isCollapsed ? 'justify-center' : ''
@@ -34,7 +34,7 @@
           >
             <LayoutDashboard class="w-5 h-5 text-slate-500 group-hover:text-slate-900 shrink-0 transition-colors" /> 
             <span 
-                class="whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
+                class="text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
                 :class="isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-3'"
             >
                 ホーム
@@ -42,7 +42,7 @@
           </router-link>
 
           <router-link to="/production-planning" 
-            class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
+            class="text-sm flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
             :class="[
                 $route.path === '/production-planning' ? 'bg-blue-50 text-blue-700 font-medium' : '',
                 isCollapsed ? 'justify-center' : ''
@@ -52,7 +52,7 @@
           >
             <Calendar class="w-5 h-5 text-slate-500 group-hover:text-slate-900 shrink-0 transition-colors" /> 
             <span 
-                class="whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
+                class="text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
                 :class="isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-3'"
             >
                 生産計画設定
@@ -60,7 +60,7 @@
           </router-link>
 
           <router-link to="/user-management" 
-            class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
+            class="text-sm flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
             :class="[
                 $route.path === '/user-management' ? 'bg-blue-50 text-blue-700 font-medium' : '',
                 isCollapsed ? 'justify-center' : ''
@@ -70,7 +70,7 @@
           >
             <Users class="w-5 h-5 text-slate-500 group-hover:text-slate-900 shrink-0 transition-colors" /> 
             <span 
-                class="whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
+                class="text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
                 :class="isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-3'"
             >
                 ユーザー管理
@@ -78,7 +78,7 @@
           </router-link>
 
           <router-link to="/data-maintenance" 
-            class="flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
+            class="text-sm flex items-center px-3 py-2 rounded-md hover:bg-gray-100 hover:text-slate-900 transition-colors group h-10" 
             :class="[
                 $route.path === '/data-maintenance' ? 'bg-blue-50 text-blue-700 font-medium' : '',
                 isCollapsed ? 'justify-center' : ''
@@ -88,7 +88,7 @@
           >
             <Database class="w-5 h-5 text-slate-500 group-hover:text-slate-900 shrink-0 transition-colors" /> 
             <span 
-                class="whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
+                class="text-sm whitespace-nowrap overflow-hidden transition-all duration-300 ease-in-out"
                 :class="isCollapsed ? 'w-0 opacity-0 ml-0' : 'w-auto opacity-100 ml-3'"
             >
                 データ保守
