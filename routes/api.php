@@ -5,9 +5,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EquipmentController;
 
+// Public routes
+Route::post('/login', [AuthController::class, 'login']);
 
+// Protected routes (Cần Token)
 Route::middleware(['auth:sanctum'])->group(function () {
-    // API lấy thông tin user đang login
+    Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
+    Route::post('/logout', [AuthController::class, 'logout']); // Thêm logout
     Route::get('/get-user-login', [AuthController::class, 'getUserLogin']);
     Route::get('/equipments/tree', [EquipmentController::class, 'getTree']);
 });
