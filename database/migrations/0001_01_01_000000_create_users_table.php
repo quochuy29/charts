@@ -27,7 +27,7 @@ return new class extends Migration
         });
 
         Schema::create('t_user_roles', function (Blueprint $table) {
-            $table->bigInteger('user_id');
+            $table->string('user_id');
             $table->bigInteger('role_code');
             $table->timestamps();
         });

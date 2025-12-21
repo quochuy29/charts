@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -33,7 +34,10 @@ class AuthController extends Controller
     $isPersistent = $user->isPersistent(); 
 
     // Access Token: Ngắn hạn (ví dụ 2 tiếng)
-    $accessTokenExpiration = Carbon::now()->addMinutes(config('sanctum.expiration', 120));
+   // Lấy config, nếu null thì fallback về 120 phút (cho Access Token)
+    $expirationMinutes = config('sanctum.expiration') ?: 120;
+    
+    $accessTokenExpiration = Carbon::now()->addMinutes($expirationMinutes);
     
     // Refresh Token: 
     // Nếu là display_user (ID 3) -> 5 năm
@@ -70,6 +74,14 @@ class AuthController extends Controller
         $user = $request->user();
         $currentToken = $user->currentAccessToken();
 
+        // 1. Nếu là Session (TransientToken) -> Báo lỗi yêu cầu dùng Token
+        // (Vì ta muốn bắt buộc quy trình Refresh Token Rotation)
+        if (!$currentToken instanceof PersonalAccessToken) {
+            return response()->json([
+                'message' => 'Request is using Session Cookie instead of Token. Please clear browser cookies.'
+            ], 400);
+        }
+
         // Kiểm tra Token Ability: Chỉ token có quyền 'issue-access-token' mới được refresh
         if (!$currentToken->can('issue-access-token')) {
             return response()->json(['message' => 'Invalid token ability'], 403);
@@ -81,8 +93,8 @@ class AuthController extends Controller
 
         // 2. Xác định lại thời gian (logic giống lúc login)
         $isPersistent = $user->isPersistent();
-        
-        $accessTokenExpiration = Carbon::now()->addMinutes(config('sanctum.expiration', 120));
+        $expirationMinutes = config('sanctum.expiration') ?: 120;
+        $accessTokenExpiration = Carbon::now()->addMinutes($expirationMinutes);
         $refreshTokenExpiration = $isPersistent 
             ? Carbon::now()->addYears(5) // Gia hạn thêm 5 năm nữa từ thời điểm này
             : Carbon::now()->addDay();
@@ -100,10 +112,22 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        // Thu hồi token hiện tại
-        if ($request->user()) {
-            $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+
+        if ($user) {
+            $currentToken = $user->currentAccessToken();
+
+            // 2. Chỉ thực hiện xóa nếu đây là Token thực sự (PersonalAccessToken)
+            if ($currentToken instanceof PersonalAccessToken) {
+                $currentToken->delete();
+            }
+            
+            // (Tuỳ chọn) Nếu bạn muốn logout cả Session cũ nếu có
+            // if (! $currentToken instanceof PersonalAccessToken) {
+            //     auth()->guard('web')->logout();
+            // }
         }
+
         return response()->json(['message' => 'Logged out successfully']);
     }
 

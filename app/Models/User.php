@@ -7,10 +7,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * Xác định tên bảng mới
@@ -35,13 +36,18 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Relationship: User có nhiều Role thông qua bảng t_user_roles
-     */
-    public function roles(): BelongsToMany
+   public function roles(): BelongsToMany
     {
-        // belongsToMany(RelatedModel, pivot_table, foreign_key, related_key)
-        return $this->belongsToMany(Role::class, 't_user_roles', 'user_id', 'role_code');
+        // Cú pháp: belongsToMany(RelatedModel, pivot_table, foreignPivotKey, relatedPivotKey, parentKey, relatedKey)
+        // Tham số thứ 5 ('user_id') là quan trọng nhất để sửa lỗi này.
+        return $this->belongsToMany(
+            Role::class,      // Model liên kết
+            't_user_roles',   // Bảng trung gian
+            'user_id',        // Tên cột khóa ngoại trong bảng pivot trỏ về User (t_user_roles.user_id)
+            'role_code',        // Tên cột khóa ngoại trong bảng pivot trỏ về Role (t_user_roles.role_id)
+            'user_id',        // <--- QUAN TRỌNG: Tên cột khóa chính thực tế trên bảng Users (t_users.user_id - String)
+            'role_code'              // Tên cột khóa chính trên bảng Roles (m_roles.id - Integer)
+        );
     }
 
     /**
