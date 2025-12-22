@@ -24,7 +24,6 @@
 
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="flex flex-wrap items-center gap-3">
-                            
                             <div class="flex bg-gray-100 p-1 rounded-lg">
                                 <button v-for="p in periods" :key="p.value" @click="currentPeriodType = p.value"
                                     class="px-3 py-1.5 text-xs font-bold rounded-md transition-all"
@@ -32,7 +31,6 @@
                                     {{ p.label }}
                                 </button>
                             </div>
-
                             <div class="relative group w-[160px]">
                                 <div class="flex items-center border border-gray-300 rounded-md px-3 py-1.5 bg-white shadow-sm h-[36px] hover:bg-gray-50 transition-colors cursor-pointer">
                                     <component :is="CalendarIcon" class="w-4 h-4 text-gray-500 mr-2" />
@@ -45,7 +43,6 @@
                                     @input="updateDate($event.target.value, 'date')"
                                     @click="$event.target.showPicker && $event.target.showPicker()" />
                             </div>
-
                             <div v-if="activeTab !== 'comparison'" class="relative group w-[160px]">
                                 <div class="flex items-center border border-gray-300 rounded-md px-3 py-1.5 bg-white shadow-sm h-[36px] hover:bg-gray-50 transition-colors cursor-pointer"
                                     :class="compareDate ? 'text-gray-700' : 'text-gray-400 border-dashed'">
@@ -64,7 +61,6 @@
                                     @click="$event.target.showPicker && $event.target.showPicker()" />
                             </div>
                         </div>
-
                         <div class="flex items-center gap-4">
                             <label v-if="activeTab !== 'comparison'" class="flex items-center gap-2 cursor-pointer select-none group">
                                 <input type="checkbox" v-model="showTarget" class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300">
@@ -96,19 +92,28 @@
                 </div>
             </div>
 
-            <div class="flex-1 relative w-full h-full min-h-[400px]">
-                <BarChart v-if="shouldUseBarChart" :data="chartData" :options="chartOptions" />
-                <LineChart v-else :data="chartData" :options="chartOptions" />
+            <div class="flex-1 relative w-full h-full min-h-[400px] flex items-center justify-center">
+                <template v-if="chartVisibility.show">
+                    <BarChart v-if="shouldUseBarChart" :data="chartData" :options="chartOptions" class="w-full h-full"/>
+                    <LineChart v-else :data="chartData" :options="chartOptions" class="w-full h-full"/>
+                </template>
+                
+                <div v-else class="text-gray-500 text-sm bg-gray-50 px-8 py-6 rounded-lg border border-gray-200 flex flex-col items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{{ chartVisibility.msg }}</span>
+                </div>
             </div>
         </div>
 
         <div class="flex gap-3 items-center justify-center">
-            <button @click="isAxisModalOpen = true"
-                class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm transition-all">
+            <button @click="isAxisModalOpen = true" :disabled="!chartVisibility.show"
+                class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 <component :is="SettingsIcon" class="w-4 h-4" /> 軸設定 (Axis)
             </button>
-            <button @click="isDataTableOpen = true"
-                class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm transition-all">
+            <button @click="isDataTableOpen = true" :disabled="!chartVisibility.show"
+                class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium text-gray-700 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                 <component :is="TableIcon" class="w-4 h-4" /> データ表 (Table)
             </button>
         </div>
@@ -141,7 +146,7 @@
 
         <div v-if="isDataTableOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <div class="p-6 border-b flex justify-between items-center">
+                 <div class="p-6 border-b flex justify-between items-center">
                     <div>
                         <h3 class="text-lg font-bold">データ詳細</h3>
                         <p class="text-sm text-gray-500">{{ getDateDisplay(currentDate, currentPeriodType) }}</p>
@@ -177,7 +182,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 </template>
 
@@ -186,7 +190,7 @@ import { ref, computed, watch, onMounted, reactive } from 'vue';
 import { useRoute } from 'vue-router';
 import { format, parseISO, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import axios from 'axios'; // Import Axios
+import axios from 'axios';
 import { 
     Calendar as CalendarIcon, 
     X as XIcon, 
@@ -202,7 +206,7 @@ import { fetchDashboardChartData } from '../services/mockData';
 const route = useRoute();
 
 // --- STATE ---
-const treeData = ref([]); // State lưu trữ cây thiết bị từ API
+const treeData = ref([]);
 const activeTab = ref('period');
 const currentPeriodType = ref('day');
 const currentDate = ref(new Date());
@@ -213,7 +217,6 @@ const showTarget = ref(true);
 const shopDisplayType = ref('cost');
 const isLoading = ref(false);
 
-// Constants
 const tabs = [
     { label: '使用量推移', value: 'period' },
     { label: '設備比較', value: 'comparison' },
@@ -230,36 +233,25 @@ const shopDisplayTypes = [
     { label: '台当たりCO2排出量', value: 'co2_per_unit' }
 ];
 
-// Modals State
 const isAxisModalOpen = ref(false);
 const isDataTableOpen = ref(false);
 const axisSettings = reactive({ yLeftMin: '', yLeftMax: '', yRightMin: '', yRightMax: '' });
 const chartData = ref({ labels: [], datasets: [] });
 
-// --- API: FETCH TREE DATA ---
+// --- TREE LOGIC ---
 const fetchTreeData = async () => {
     try {
-        // Gọi API lấy cây thiết bị
         const response = await axios.get('/api/equipments/tree');
-        treeData.value = response.data; // Giả sử API trả về mảng root nodes
+        treeData.value = response.data;
     } catch (error) {
         console.error('Failed to load equipment tree:', error);
     }
 };
 
-// --- COMPUTED: PROCESS NAME (RECURSIVE PATH) ---
-// Hàm đệ quy tìm đường dẫn đến node có ID cho trước
 const findPathToNode = (nodes, targetId, currentPath = []) => {
     for (const node of nodes) {
-        // Tạo đường dẫn mới bao gồm node hiện tại
         const newPath = [...currentPath, node.name];
-        
-        // Nếu tìm thấy ID (so sánh lỏng lẻo vì query param là string)
-        if (node.id == targetId) {
-            return newPath;
-        }
-        
-        // Nếu có con, tìm tiếp
+        if (node.id == targetId) return newPath;
         if (node.children && node.children.length > 0) {
             const foundPath = findPathToNode(node.children, targetId, newPath);
             if (foundPath) return foundPath;
@@ -268,28 +260,59 @@ const findPathToNode = (nodes, targetId, currentPath = []) => {
     return null;
 };
 
+// Computed: Xác định cấp độ Node hiện tại (1: Root, 2: Facility, 3: Utility, 4: Equipment)
+const currentLevel = computed(() => {
+    // Ưu tiên kiểm tra từ chi tiết nhất
+    if (route.query.equipment) return 4;
+    if (route.query.utility) return 3;
+    if (route.query.facility) return 2;
+    return 1; // Mặc định là Root/Company
+});
+
 const processName = computed(() => {
-    // 1. Xác định ID cần tìm từ URL (ưu tiên equipment > utility > facility)
     const targetId = route.query.equipment || route.query.utility || route.query.facility;
-    
-    // Nếu không có ID hoặc chưa tải xong Tree -> Mặc định
     if (!targetId || treeData.value.length === 0) return '全工程 (All Process)';
-
-    // 2. Tìm đường dẫn tên
     const pathArray = findPathToNode(treeData.value, targetId);
-    
-    // 3. Ghép chuỗi với dấu gạch dưới
-    if (pathArray) {
-        return pathArray.join('_'); // Ví dụ: "1ライン_工場_電気"
-    }
-    
-    return 'Unknown Process'; // Trường hợp có ID nhưng không tìm thấy trong Tree
+    return pathArray ? pathArray.join('_') : 'Unknown Process';
 });
 
-// --- CHART LOGIC & HELPERS (Giữ nguyên) ---
-const shouldUseBarChart = computed(() => {
-    return activeTab.value === 'comparison' || activeTab.value === 'shop';
+// --- VISIBILITY LOGIC ---
+const chartVisibility = computed(() => {
+    const level = currentLevel.value;
+    const tab = activeTab.value;
+
+    // 1. Tab 使用量推移 (Period): Chỉ Level 3, 4
+    if (tab === 'period') {
+        if (level === 3 || level === 4) return { show: true };
+        return { 
+            show: false, 
+            msg: '使用量推移を表示するには、サイドバーからユーティリティまたは設備を選択してください。' 
+        };
+    }
+
+    // 2. Tab 設備比較 (Comparison): Chỉ Level 3
+    if (tab === 'comparison') {
+        if (level === 3) return { show: true };
+        return { 
+            show: false, 
+            msg: '設備比較を表示するには、サイドバーからユーティリティを選択してください。' 
+        };
+    }
+
+    // 3. Tab コスト/CO2 (Shop): Level 2, 3, 4
+    if (tab === 'shop') {
+        if ([2, 3, 4].includes(level)) return { show: true };
+        return { 
+            show: false, 
+            msg: 'コスト/CO2を表示するには、サイドバーから工場、ユーティリティ、または設備を選択してください。' 
+        };
+    }
+
+    return { show: true };
 });
+
+// --- CHART HELPERS ---
+const shouldUseBarChart = computed(() => activeTab.value === 'comparison' || activeTab.value === 'shop');
 
 const getChartTitle = computed(() => {
     const periodLabel = getDateDisplay(currentDate.value, currentPeriodType.value);
@@ -387,6 +410,12 @@ const clearCompare = () => { compareDate.value = null; comparePickerValue.value 
 const applyAxisSettings = () => { isAxisModalOpen.value = false; };
 
 const generateChartData = async () => {
+    // Chỉ gọi API nếu điều kiện hiển thị OK
+    if (!chartVisibility.value.show) {
+        chartData.value = { labels: [], datasets: [] };
+        return;
+    }
+
     isLoading.value = true;
     try {
         const data = await fetchDashboardChartData({
@@ -411,7 +440,6 @@ watch([activeTab, currentPeriodType, currentDate, compareDate, showTarget, shopD
 }, { deep: true });
 
 onMounted(() => {
-    // Gọi cả 2 API khi mount
     fetchTreeData(); 
     generateChartData();
 });
