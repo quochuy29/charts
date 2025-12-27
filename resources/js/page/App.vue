@@ -7,6 +7,7 @@
             :isCollapsed="isCollapsed" 
             @update:selectedNode="selectedNode = $event"
             @toggle-sidebar="toggleSidebar"
+            @tree-loaded="handleTreeData"
         />
 
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -49,7 +50,7 @@
             </header>
 
             <main class="flex-1 overflow-auto bg-gray-50 relative">
-                <router-view></router-view>
+                <router-view :treeData="treeData"></router-view>
             </main>
         </div>
     </div>
@@ -99,6 +100,13 @@
             console.error('Failed to fetch user profile:', error);
             displayName.value = 'Unknown User';
         }
+    };
+
+    const treeData = ref([]); // State lưu trữ cây dữ liệu toàn cục
+
+    // Hàm xử lý khi Sidebar gửi dữ liệu lên
+    const handleTreeData = (data) => {
+        treeData.value = data;
     };
 
     // Watch path để load user profile khi chuyển trang hoặc reload

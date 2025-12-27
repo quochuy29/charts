@@ -145,7 +145,7 @@ const props = defineProps({
     isCollapsed: { type: Boolean, default: false }
 });
 
-const emit = defineEmits(['toggle-sidebar', 'update:selectedNode']);
+const emit = defineEmits(['toggle-sidebar', 'update:selectedNode', 'tree-loaded']);
 const router = useRouter();
 const route = useRoute();
 
@@ -158,6 +158,7 @@ const fetchTreeData = async () => {
         // Mock data logic or real API
         const response = await axios.get('/api/equipments/tree');
         treeData.value = response.data;
+        emit('tree-loaded', treeData.value);
     } catch (error) {
         console.error("Failed to load equipment tree:", error);
     } finally {
