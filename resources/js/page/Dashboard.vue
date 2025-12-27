@@ -37,7 +37,7 @@
                                 class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 h-9 px-4 py-2 w-[160px] text-left font-normal">
                                 <component :is="CalendarIcon" class="mr-2 h-4 w-4 opacity-50" />
                                 <span class="flex-1 truncate">{{ getDateDisplay(currentDate, currentPeriodType)
-                                    }}</span>
+                                }}</span>
                             </button>
 
                             <select v-if="currentPeriodType === 'year'"
@@ -118,13 +118,22 @@
             </div>
 
             <div class="flex-1 w-full relative h-[450px]">
-                <template v-if="chartVisibility.show">
-                    <BarChart v-if="shouldUseBarChart" :data="chartData" :options="chartOptions"
-                        class="w-full h-full" />
-                    <LineChart v-else :data="chartData" :options="chartOptions" class="w-full h-full" />
+                <div v-if="isLoading"
+                    class="flex flex-col items-center justify-center h-full w-full absolute inset-0 z-10 bg-white/80">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                    <span class="mt-2 text-sm text-slate-500">データ読み込み中...</span>
+                </div>
+
+                <template v-if="!isLoading && chartVisibility.show">
+                    <PeriodTab v-if="activeTab === 'period'" :chartData="chartData" :axisSettings="axisSettings"
+                        :unit="getCurrentUnit" :periodType="currentPeriodType" />
+                    <ComparisonTab v-else-if="activeTab === 'comparison'" :chartData="chartData"
+                        :axisSettings="axisSettings" :unit="getCurrentUnit" :periodType="currentPeriodType" />
+                    <ShopTab v-else-if="activeTab === 'shop'" :chartData="chartData" :axisSettings="axisSettings"
+                        :unit="getCurrentUnit" :shopDisplayType="shopDisplayType" :isLevel4="nodeLevel === 4" />
                 </template>
 
-                <div v-else
+                <div v-if="!isLoading && !chartVisibility.show"
                     class="flex flex-col items-center justify-center h-full text-slate-500 bg-slate-50 rounded-lg border border-dashed border-slate-200">
                     <span class="text-sm font-medium">{{ chartVisibility.msg }}</span>
                 </div>
@@ -142,237 +151,13 @@
             </button>
         </div>
 
-        <div v-if="isAxisModalOpen"
-            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            @click.self="isAxisModalOpen = false">
-            <div
-                class="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-white p-6 shadow-lg duration-200 sm:rounded-lg">
-                <div class="flex flex-col space-y-1.5 text-center sm:text-left">
-                    <h2 class="text-lg font-semibold leading-none tracking-tight">Y軸スケール設定</h2>
-                </div>
+        <AxisSettingsModal :isOpen="isAxisModalOpen" :settings="axisSettings" :activeTab="activeTab"
+            @close="isAxisModalOpen = false" @apply="applyAxisSettings" />
 
-                <div class="space-y-6 py-4">
-                    <div class="space-y-3">
-                        <label
-                            class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Y1軸
-                            設定:</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <span class="text-xs text-muted-foreground text-slate-500">最小値:</span>
-                                <input v-model="axisSettings.yLeftMin"
-                                    class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950"
-                                    placeholder="0">
-                            </div>
-                            <div class="space-y-1">
-                                <span class="text-xs text-muted-foreground text-slate-500">最大値:</span>
-                                <input v-model="axisSettings.yLeftMax"
-                                    class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950"
-                                    placeholder="自動">
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <span class="text-xs text-muted-foreground text-slate-500">間隔:</span>
-                            <input v-model="axisSettings.yLeftStepSize"
-                                class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950"
-                                placeholder="自動">
-                        </div>
-                    </div>
-
-                    <div class="space-y-3 transition-opacity duration-200"
-                        :class="{ 'opacity-50': activeTab !== 'shop' }">
-                        <label
-                            class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Y2軸
-                            設定:</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <span class="text-xs text-muted-foreground text-slate-500">最小値:</span>
-                                <input v-model="axisSettings.yRightMin" :disabled="activeTab !== 'shop'"
-                                    class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950 disabled:cursor-not-allowed disabled:bg-slate-50"
-                                    placeholder="0">
-                            </div>
-                            <div class="space-y-1">
-                                <span class="text-xs text-muted-foreground text-slate-500">最大値:</span>
-                                <input v-model="axisSettings.yRightMax" :disabled="activeTab !== 'shop'"
-                                    class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950 disabled:cursor-not-allowed disabled:bg-slate-50"
-                                    placeholder="自動">
-                            </div>
-                        </div>
-                        <div class="space-y-1">
-                            <span class="text-xs text-muted-foreground text-slate-500">間隔:</span>
-                            <input v-model="axisSettings.yRightStepSize" :disabled="activeTab !== 'shop'"
-                                class="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-950 disabled:cursor-not-allowed disabled:bg-slate-50"
-                                placeholder="自動">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-                    <button @click="isAxisModalOpen = false"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 h-10 px-4 py-2">キャンセル</button>
-                    <button @click="applyAxisSettings"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors bg-slate-900 text-slate-50 hover:bg-slate-900/90 h-10 px-4 py-2">適用</button>
-                </div>
-            </div>
-        </div>
-
-        <div v-if="isDataTableOpen"
-            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-            @click.self="isDataTableOpen = false">
-            <div
-                class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200 sm:rounded-lg border border-slate-200">
-
-                <div class="flex flex-col space-y-1.5 p-6 border-b">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h3 class="font-semibold leading-none tracking-tight text-lg">データ詳細: {{ processName }}（{{
-                                getCurrentUnit }}）</h3>
-                            <p class="text-sm text-slate-500 mt-2 font-medium">{{ periodLabelText }}</p>
-                        </div>
-                        <button @click="isDataTableOpen = false"
-                            class="rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2">
-                            <component :is="XIcon" class="h-5 w-5" />
-                        </button>
-                    </div>
-                    <div class="pt-2">
-                        <button @click="downloadCSV"
-                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 h-8 px-3 gap-2 shadow-sm">
-                            <component :is="DownloadIcon" class="h-3.5 w-3.5" /> CSV出力
-                        </button>
-                    </div>
-                </div>
-
-                <div class="p-0 overflow-auto flex-1 relative">
-
-                    <table v-if="activeTab === 'period'" class="w-full text-sm text-left caption-bottom">
-                        <thead class="[&_tr]:border-b sticky top-0 bg-white z-10 shadow-sm">
-                            <tr class="border-b transition-colors hover:bg-slate-100/50">
-                                <th
-                                    class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                    {{ currentPeriodType === 'week' ? '曜日' : '日付' }}
-                                </th>
-                                <th
-                                    class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                    時間</th>
-                                <th class="h-12 px-4 text-right align-middle font-medium text-slate-500">
-                                    {{ processName }}<br>
-                                    <span class="text-xs text-slate-400 font-normal">{{ getHeaderSubDate(currentDate,
-                                        false)
-                                        }}</span>
-                                </th>
-                                <th v-if="compareDate"
-                                    class="h-12 px-4 text-right align-middle font-medium text-slate-500">
-                                    {{ processName }}<br>
-                                    <span class="text-xs text-slate-400 font-normal">{{ getHeaderSubDate(compareDate,
-                                        false)
-                                        }}</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="[&_tr:last-child]:border-0">
-                            <tr v-for="(label, idx) in chartData.labels" :key="idx"
-                                class="border-b transition-colors hover:bg-slate-50">
-                                <td class="p-4 align-middle font-medium text-slate-900 bg-slate-50/30">{{
-                                    getRowDateDisplay(label) }}</td>
-                                <td class="p-4 align-middle text-slate-500 bg-slate-50/30">
-                                    {{ currentPeriodType === 'week' ? String(idx % 24).padStart(2, '0') + ':00' :
-                                    getRowTimeDisplay(label) }}
-                                </td>
-                                <td class="p-4 align-middle text-right tabular-nums">{{
-                                    formatNumber(getDatasetValue('実績', idx))
-                                    }}</td>
-                                <td v-if="compareDate" class="p-4 align-middle text-right tabular-nums">{{
-                                    formatNumber(getDatasetValue('compare', idx)) }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <table v-else-if="activeTab === 'comparison'" class="w-full text-sm text-left caption-bottom">
-                        <thead class="[&_tr]:border-b sticky top-0 bg-white z-10 shadow-sm">
-                            <tr class="border-b transition-colors hover:bg-slate-100/50">
-                                <template v-if="currentPeriodType === 'week'">
-                                    <th
-                                        class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                        曜日</th>
-                                    <th
-                                        class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                        時間</th>
-                                </template>
-                                <template v-else>
-                                    <th
-                                        class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[150px] bg-slate-50/50">
-                                        {{ currentPeriodType === 'day' ? '時間' : '日付' }}
-                                    </th>
-                                </template>
-                                <th v-for="ds in chartData.datasets" :key="ds.label"
-                                    class="h-12 px-4 text-right align-middle font-medium text-slate-500">{{ ds.label }}
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="[&_tr:last-child]:border-0">
-                            <tr v-for="(label, idx) in chartData.labels" :key="idx"
-                                class="border-b transition-colors hover:bg-slate-50">
-                                <template v-if="currentPeriodType === 'week'">
-                                    <td class="p-4 align-middle font-medium text-slate-900 bg-slate-50/30">{{ label }}
-                                    </td>
-                                    <td class="p-4 align-middle text-slate-500 bg-slate-50/30">00:00</td>
-                                </template>
-                                <template v-else>
-                                    <td class="p-4 align-middle font-medium text-slate-900 bg-slate-50/30">{{ label }}
-                                    </td>
-                                </template>
-                                <td v-for="ds in chartData.datasets" :key="ds.label"
-                                    class="p-4 align-middle text-right tabular-nums">{{ formatNumber(ds.data[idx]) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <table v-else class="w-full text-sm text-left caption-bottom">
-                        <thead class="[&_tr]:border-b sticky top-0 bg-white z-10 shadow-sm">
-                            <tr class="border-b transition-colors hover:bg-slate-100/50">
-                                <th
-                                    class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                    {{ currentPeriodType === 'week' ? '曜日' : '日付' }}
-                                </th>
-                                <th
-                                    class="h-12 px-4 text-left align-middle font-medium text-slate-500 w-[100px] bg-slate-50/50">
-                                    時間</th>
-                                <th v-for="ds in chartData.datasets" :key="ds.label"
-                                    class="h-12 px-4 text-right align-middle font-medium text-slate-500">
-                                    {{ ds.label }}<br>
-                                    <span class="text-xs text-slate-400 font-normal">
-                                        {{ ds.label.includes('(Comp)') || ds.stack === 'Stack 1' ?
-                                            getHeaderSubDate(compareDate,
-                                        true) : getHeaderSubDate(currentDate, true) }}
-                                    </span>
-                                    <span v-if="ds.yAxisID === 'y1'"
-                                        class="text-[10px] ml-1 text-slate-400 font-normal">(右軸)</span>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="[&_tr:last-child]:border-0">
-                            <tr v-for="(label, idx) in chartData.labels" :key="idx"
-                                class="border-b transition-colors hover:bg-slate-50">
-                                <td class="p-4 align-middle font-medium text-slate-900 bg-slate-50/30">{{
-                                    getRowDateDisplay(label) }}</td>
-                                <td class="p-4 align-middle text-slate-500 bg-slate-50/30">{{ getRowTimeDisplay(label)
-                                    }}</td>
-                                <td v-for="ds in chartData.datasets" :key="ds.label"
-                                    class="p-4 align-middle text-right tabular-nums">{{ formatNumber(ds.data[idx]) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div v-if="!chartData.labels.length" class="p-10 text-center text-slate-500">データがありません</div>
-                </div>
-
-                <div class="p-4 border-t bg-slate-50 flex justify-end rounded-b-lg">
-                    <button @click="isDataTableOpen = false"
-                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors border border-slate-200 bg-white hover:bg-slate-100 hover:text-slate-900 h-9 px-4 py-2">閉じる</button>
-                </div>
-            </div>
-        </div>
+        <DataTableModal :isOpen="isDataTableOpen"
+            :chartData="activeTab === 'comparison' ? comparisonDetailData : chartData" :activeTab="activeTab"
+            :currentPeriodType="currentPeriodType" :processName="processName" :unit="getCurrentUnit"
+            :currentDate="currentDate" :compareDate="compareDate" @close="isDataTableOpen = false" />
     </div>
 </template>
 
@@ -385,16 +170,17 @@ import {
     Calendar as CalendarIcon,
     X as XIcon,
     Settings as SettingsIcon,
-    Table as TableIcon,
-    Download as DownloadIcon
+    Table as TableIcon
 } from 'lucide-vue-next';
 
-// Use Vue ChartJS wrappers
-import LineChart from './components/charts/type/Line.vue';
-import BarChart from './components/charts/type/Bar.vue';
+// --- IMPORT SUB-COMPONENTS ---
+import PeriodTab from './components/dashboard/tabs/PeriodTab.vue';
+import ComparisonTab from './components/dashboard/tabs/ComparisonTab.vue';
+import ShopTab from './components/dashboard/tabs/ShopTab.vue';
+import AxisSettingsModal from './components/dashboard/modal/AxisSettingsModal.vue';
+import DataTableModal from './components/dashboard/modal/DataTableModal.vue';
 
-// --- PROPS DEFINITION ---
-// Nhận treeData từ component cha (App.vue hoặc Layout) để tránh fetch lại
+// --- PROPS ---
 const props = defineProps({
     treeData: {
         type: Array,
@@ -404,7 +190,7 @@ const props = defineProps({
 
 const route = useRoute();
 
-// --- STATE ---
+// --- STATE MANAGEMENT ---
 const activeTab = ref('period');
 const currentPeriodType = ref('day');
 const currentDate = ref(new Date());
@@ -415,17 +201,27 @@ const showTarget = ref(true);
 const shopDisplayType = ref('cost');
 const isLoading = ref(false);
 
+// Modal States
+const isAxisModalOpen = ref(false);
+const isDataTableOpen = ref(false);
+
+// Chart Data & Settings
+const axisSettings = reactive({
+    yLeftMin: '', yLeftMax: '', yLeftStepSize: '',
+    yRightMin: '', yRightMax: '', yRightStepSize: ''
+});
+const chartData = ref({ labels: [], datasets: [] });
+
+// Constants
 const tabs = [
     { label: '使用量推移', value: 'period' },
     { label: '設備比較', value: 'comparison' },
     { label: 'コスト/CO2', value: 'shop' }
 ];
-
 const periods = [
     { label: '日', value: 'day' }, { label: '週', value: 'week' },
     { label: '月', value: 'month' }, { label: '年', value: 'year' }
 ];
-
 const shopDisplayTypes = [
     { label: 'コスト', value: 'cost' },
     { label: 'CO2排出量', value: 'co2' },
@@ -433,26 +229,7 @@ const shopDisplayTypes = [
     { label: '台当たりCO2排出量', value: 'co2_per_unit' }
 ];
 
-const isAxisModalOpen = ref(false);
-const isDataTableOpen = ref(false);
-const axisSettings = reactive({
-    yLeftMin: '', yLeftMax: '', yLeftStepSize: '',
-    yRightMin: '', yRightMax: '', yRightStepSize: ''
-});
-const chartData = ref({ labels: [], datasets: [] });
-
-// --- COMPUTED: HELPERS & LOGIC ---
-
-const yearRange = computed(() => {
-    const currentYear = new Date().getFullYear();
-    const startYear = currentYear - 10;
-    const endYear = currentYear + 5;
-    const years = [];
-    for (let i = startYear; i <= endYear; i++) years.push(i);
-    return years.sort((a, b) => b - a);
-});
-
-// Logic tìm Path Node đệ quy: Trả về mảng tên [Cha, Con, Cháu]
+// --- LOGIC: PROCESS NAME (Tree Traversal) ---
 const findPathToNode = (nodes, targetId, currentPath = []) => {
     for (const node of nodes) {
         const newPath = [...currentPath, node.name];
@@ -465,33 +242,29 @@ const findPathToNode = (nodes, targetId, currentPath = []) => {
     return null;
 };
 
-// Title Path: 1ライン_工場_電気
-const processName = computed(() => {
+// --- LOGIC TÌM NODE & LEVEL ---
+const currentPathArray = computed(() => {
     const targetId = route.query.equipment || route.query.utility || route.query.facility;
-    // Sử dụng props.treeData thay vì treeData local
-    if (!targetId || props.treeData.length === 0) return '全工程';
-    const pathArray = findPathToNode(props.treeData, targetId);
-    return pathArray ? pathArray.join('_') : '全工程';
+    if (!targetId || props.treeData.length === 0) return [];
+    return findPathToNode(props.treeData, targetId) || [];
 });
 
+const processName = computed(() => {
+    return currentPathArray.value.length > 0 ? currentPathArray.value.join('_') : '全工程';
+});
+
+// Tính Level của Node (Dựa vào độ sâu của cây: Root=1, Factory=2, Line=3, Equipment=4)
+const nodeLevel = computed(() => currentPathArray.value.length);
+
+// --- LOGIC: CHART VISIBILITY & UNIT ---
 const chartVisibility = computed(() => {
     const hasFacility = !!route.query.facility;
     const hasUtility = !!route.query.utility;
     const hasEquipment = !!route.query.equipment;
-    const tab = activeTab.value;
 
-    if (tab === 'period') {
-        if (hasUtility || hasEquipment) return { show: true };
-        return { show: false, msg: '使用量推移を表示するには、サイドバーからユーティリティまたは設備を選択してください。' };
-    }
-    if (tab === 'comparison') {
-        if (hasUtility) return { show: true };
-        return { show: false, msg: '設備比較を表示するには、サイドバーからユーティリティを選択してください。' };
-    }
-    if (tab === 'shop') {
-        if (hasFacility || hasUtility || hasEquipment) return { show: true };
-        return { show: false, msg: 'コスト/CO2を表示するには、サイドバーから工場、ユーティリティ、または設備を選択してください。' };
-    }
+    if (activeTab.value === 'period') return (hasUtility || hasEquipment) ? { show: true } : { show: false, msg: '使用量推移を表示するには、サイドバーからユーティリティまたは設備を選択してください。' };
+    if (activeTab.value === 'comparison') return hasUtility ? { show: true } : { show: false, msg: '設備比較を表示するには、サイドバーからユーティリティを選択してください。' };
+    if (activeTab.value === 'shop') return (hasFacility || hasUtility || hasEquipment) ? { show: true } : { show: false, msg: 'コスト/CO2を表示するには、サイドバーから工場、ユーティリティ、または設備を選択してください。' };
     return { show: true };
 });
 
@@ -500,172 +273,19 @@ const shouldShowTarget = computed(() => {
     return activeTab.value === 'period' || isShopEquipment;
 });
 
-const shouldUseBarChart = computed(() => activeTab.value === 'comparison' || activeTab.value === 'shop');
-
-const getChartTitle = computed(() => {
-    const fmt = (d, f) => {
-        if (!d) return '';
-        try { return format(d, f, { locale: ja }); } catch (e) { return ''; }
-    };
-
-    const getWeekRange = (dateObj) => {
-        if (!dateObj) return '';
-        const start = startOfWeek(dateObj, { weekStartsOn: 1 });
-        const end = endOfWeek(dateObj, { weekStartsOn: 1 });
-        return `${fmt(dateObj, "yyyy")} (${fmt(start, "dd/MM")} ～ ${fmt(end, "dd/MM")})`;
-    };
-
-    switch (activeTab.value) {
-        case 'period': {
-            const prefix = currentPeriodType.value === 'day' ? '期間（日）'
-                : currentPeriodType.value === 'week' ? '期間（週）'
-                    : currentPeriodType.value === 'month' ? '期間（月）' : '期間（年）';
-            let mainDateStr = '', compareDateStr = '';
-
-            if (currentPeriodType.value === 'day') mainDateStr = fmt(currentDate.value, "yyyy/MM/dd");
-            else if (currentPeriodType.value === 'week') mainDateStr = getWeekRange(currentDate.value);
-            else if (currentPeriodType.value === 'month') mainDateStr = fmt(currentDate.value, "yyyy/MM");
-            else mainDateStr = fmt(currentDate.value, "yyyy");
-
-            if (compareDate.value) {
-                if (currentPeriodType.value === 'day') compareDateStr = fmt(compareDate.value, "yyyy/MM/dd");
-                else if (currentPeriodType.value === 'week') compareDateStr = getWeekRange(compareDate.value);
-                else if (currentPeriodType.value === 'month') compareDateStr = fmt(compareDate.value, "yyyy/MM");
-                else compareDateStr = fmt(compareDate.value, "yyyy");
-                return `${prefix}: ${mainDateStr} ~ ${compareDateStr}`;
-            }
-            return `${prefix}: ${mainDateStr}`;
-        }
-        case 'comparison': {
-            const prefix = currentPeriodType.value === 'day' ? '設備比較（日）'
-                : currentPeriodType.value === 'week' ? '設備比較（週）'
-                    : currentPeriodType.value === 'month' ? '設備比較（月）' : '設備比較（年）';
-            let mainDateStr = '';
-            if (currentPeriodType.value === 'day') mainDateStr = fmt(currentDate.value, "yyyy/MM/dd");
-            else if (currentPeriodType.value === 'week') mainDateStr = getWeekRange(currentDate.value);
-            else if (currentPeriodType.value === 'month') mainDateStr = fmt(currentDate.value, "yyyy/MM");
-            else mainDateStr = fmt(currentDate.value, "yyyy");
-            return `${prefix}: ${mainDateStr}`;
-        }
-        case 'shop': {
-            const typeLabel = shopDisplayTypes.find(t => t.value === shopDisplayType.value)?.label || 'コスト';
-            const suffix = currentPeriodType.value === 'day' ? '（日）'
-                : currentPeriodType.value === 'week' ? '（週）'
-                    : currentPeriodType.value === 'month' ? '（月）' : '（年）';
-            const prefix = `${typeLabel}${suffix}`;
-            let mainDateStr = '', compareDateStr = '';
-
-            if (currentPeriodType.value === 'day') mainDateStr = fmt(currentDate.value, "yyyy/MM/dd");
-            else if (currentPeriodType.value === 'week') mainDateStr = getWeekRange(currentDate.value);
-            else if (currentPeriodType.value === 'month') mainDateStr = fmt(currentDate.value, "yyyy/MM");
-            else mainDateStr = fmt(currentDate.value, "yyyy");
-
-            if (compareDate.value) {
-                if (currentPeriodType.value === 'day') compareDateStr = fmt(compareDate.value, "yyyy/MM/dd");
-                else if (currentPeriodType.value === 'week') compareDateStr = getWeekRange(compareDate.value);
-                else if (currentPeriodType.value === 'month') compareDateStr = fmt(compareDate.value, "yyyy/MM");
-                else compareDateStr = fmt(compareDate.value, "yyyy");
-                return `${prefix}: ${mainDateStr} ~ ${compareDateStr}`;
-            }
-            return `${prefix}: ${mainDateStr}`;
-        }
-        default: return '';
-    }
-});
-
-const getUnitLabel = () => {
+const getCurrentUnit = computed(() => {
     if (activeTab.value === 'shop') return shopDisplayType.value.includes('cost') ? '円' : 'kg-CO2';
     return 'kWh';
-};
-
-const getCurrentUnit = computed(() => {
-    if (activeTab.value === 'shop') {
-        if (shopDisplayType.value.includes('cost')) return '円';
-        if (shopDisplayType.value.includes('co2')) return 'kg-CO2';
-        return '';
-    }
-    return 'kWh';
 });
 
-const periodLabelText = computed(() => {
-    switch (currentPeriodType.value) {
-        case 'day': return '期間: 日別';
-        case 'week': return '期間: 週別';
-        case 'month': return '期間: 月別';
-        case 'year': return '期間: 年別';
-        default: return '期間';
-    }
+// --- LOGIC: DATE & TITLE GENERATION ---
+const yearRange = computed(() => {
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 10;
+    const endYear = currentYear + 5;
+    return Array.from({ length: endYear - startYear + 1 }, (_, i) => startYear + i).sort((a, b) => b - a);
 });
 
-// --- CHART OPTIONS ---
-const chartOptions = computed(() => {
-    const isShop = activeTab.value === 'shop';
-    const isStacked = isShop;
-
-    return {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: { usePointStyle: true, boxWidth: 8 }
-            },
-            tooltip: {
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                titleColor: '#1e293b', bodyColor: '#475569', borderColor: '#e2e8f0',
-                borderWidth: 1, padding: 10,
-                callbacks: {
-                    label: function (context) {
-                        let label = context.dataset.label || '';
-                        if (label) label += ': ';
-                        if (context.parsed.y !== null) label += Math.round(context.parsed.y).toLocaleString();
-                        return label;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                stacked: isStacked,
-                grid: { display: false },
-                ticks: {
-                    font: { size: 11 },
-                    autoSkip: false,
-                    maxRotation: 0,
-                    callback: function (val, index) {
-                        if (activeTab.value === 'period' && currentPeriodType.value === 'week') {
-                            return index % 24 === 0 ? this.getLabelForValue(val) : '';
-                        }
-                        return this.getLabelForValue(val);
-                    }
-                }
-            },
-            y: {
-                stacked: isStacked,
-                beginAtZero: true,
-                position: 'left',
-                title: { display: true, text: getUnitLabel(), font: { weight: 'bold' } },
-                min: axisSettings.yLeftMin ? Number(axisSettings.yLeftMin) : undefined,
-                max: axisSettings.yLeftMax ? Number(axisSettings.yLeftMax) : undefined,
-                ticks: { stepSize: axisSettings.yLeftStepSize ? Number(axisSettings.yLeftStepSize) : undefined },
-                grid: { color: '#f1f5f9' }
-            },
-            y1: {
-                display: isShop && !shopDisplayType.value.includes('per_unit'),
-                position: 'right',
-                beginAtZero: true,
-                grid: { drawOnChartArea: false },
-                title: { display: true, text: '生産台数 (台)', font: { weight: 'bold' } },
-                min: axisSettings.yRightMin ? Number(axisSettings.yRightMin) : undefined,
-                max: axisSettings.yRightMax ? Number(axisSettings.yRightMax) : undefined,
-                ticks: { stepSize: axisSettings.yRightStepSize ? Number(axisSettings.yRightStepSize) : undefined }
-            }
-        }
-    };
-});
-
-// --- DATE HELPERS ---
 const getInputType = (type) => {
     if (type === 'week') return 'week';
     if (type === 'month') return 'month';
@@ -684,47 +304,52 @@ const getDateDisplay = (dateObj, type) => {
     return '';
 };
 
-const formatNumber = (val) => {
-    if (val === undefined || val === null) return '-';
-    return Math.round(val).toLocaleString();
-};
+const getChartTitle = computed(() => {
+    const fmt = (d, f) => { try { return format(d, f, { locale: ja }); } catch (e) { return ''; } };
+    const getWeekRange = (dateObj) => {
+        if (!dateObj) return '';
+        const start = startOfWeek(dateObj, { weekStartsOn: 1 });
+        const end = endOfWeek(dateObj, { weekStartsOn: 1 });
+        return `${fmt(dateObj, "yyyy")} (${fmt(start, "dd/MM")} ～ ${fmt(end, "dd/MM")})`;
+    };
 
-const getDatasetValue = (type, index) => {
-    if (type === '実績') {
-        const ds = chartData.value.datasets.find(d => d.label === '実績');
-        return ds ? ds.data[index] : null;
-    } else {
-        const ds = chartData.value.datasets.find(d => d.label !== '実績' && d.label !== '目標');
-        return ds ? ds.data[index] : null;
+    let prefix = '';
+    let suffix = '';
+
+    if (activeTab.value === 'period') {
+        prefix = currentPeriodType.value === 'day' ? '期間（日）' : currentPeriodType.value === 'week' ? '期間（週）' : currentPeriodType.value === 'month' ? '期間（月）' : '期間（年）';
+    } else if (activeTab.value === 'comparison') {
+        prefix = currentPeriodType.value === 'day' ? '設備比較（日）' : currentPeriodType.value === 'week' ? '設備比較（週）' : currentPeriodType.value === 'month' ? '設備比較（月）' : '設備比較（年）';
+    } else if (activeTab.value === 'shop') {
+        const typeLabel = shopDisplayTypes.find(t => t.value === shopDisplayType.value)?.label || 'コスト';
+        suffix = currentPeriodType.value === 'day' ? '（日）' : currentPeriodType.value === 'week' ? '（週）' : currentPeriodType.value === 'month' ? '（月）' : '（年）';
+        prefix = `${typeLabel}${suffix}`;
     }
-};
 
-const getHeaderSubDate = (dateObj, isShop) => {
-    if (!dateObj) return '';
-    try {
-        if (currentPeriodType.value === 'day') return format(dateObj, 'yyyy/MM/dd');
-        if (currentPeriodType.value === 'week') return `${format(dateObj, 'yyyy')}/${getWeek(dateObj)}週`;
-        if (currentPeriodType.value === 'month') return format(dateObj, 'yyyy/MM');
-        if (currentPeriodType.value === 'year') return format(dateObj, 'yyyy');
-    } catch (e) { return ''; }
-    return '';
-};
+    let mainDateStr = '';
+    let compareDateStr = '';
 
-const getRowDateDisplay = (label) => {
-    if (currentPeriodType.value === 'day') return '-';
-    if (currentPeriodType.value === 'week') return label;
-    if (currentPeriodType.value === 'month') return label;
-    if (currentPeriodType.value === 'year') return label;
-    return label;
-};
+    // Logic format date
+    const formatDateStr = (d, type) => {
+        if (type === 'day') return fmt(d, "yyyy/MM/dd");
+        if (type === 'week') return getWeekRange(d);
+        if (type === 'month') return fmt(d, "yyyy/MM");
+        return fmt(d, "yyyy");
+    };
 
-const getRowTimeDisplay = (label) => {
-    if (currentPeriodType.value === 'day') return label;
-    if (currentPeriodType.value === 'week') return '00:00';
-    return '-';
-};
+    mainDateStr = formatDateStr(currentDate.value, currentPeriodType.value);
 
-// --- DATA MOCK/GENERATION ---
+    if (compareDate.value && activeTab.value !== 'comparison') {
+        compareDateStr = formatDateStr(compareDate.value, currentPeriodType.value);
+        return `${prefix}: ${mainDateStr} ~ ${compareDateStr}`;
+    }
+
+    return `${prefix}: ${mainDateStr}`;
+});
+
+// Thêm biến này để lưu dữ liệu chi tiết cho bảng so sánh
+const comparisonDetailData = ref({ labels: [], datasets: [] });
+// --- DATA GENERATION (MOCK) ---
 const generateChartData = async () => {
     if (!chartVisibility.value.show) {
         chartData.value = { labels: [], datasets: [] };
@@ -744,9 +369,10 @@ const generateChartData = async () => {
         const weekStart = startOfWeek(currentDate.value, { locale: ja });
         const weekdayNames = ['日', '月', '火', '水', '木', '金', '土'];
 
-        if (activeTab.value === 'period') {
+        // Logic 168 điểm cho cả Period Tab VÀ Shop Tab (nếu là Level 4 - Line Chart)
+        if (activeTab.value === 'period' || (activeTab.value === 'shop' && nodeLevel.value === 4)) {
             labels = [];
-            dataCount = 168; // 7 * 24
+            dataCount = 168;
             for (let i = 0; i < 7; i++) {
                 const currentDay = addDays(weekStart, i);
                 const dayName = weekdayNames[currentDay.getDay()];
@@ -763,37 +389,33 @@ const generateChartData = async () => {
         labels = Array.from({ length: 12 }, (_, i) => `${i + 1}月`);
         dataCount = 12;
     }
-
+    
+    const timeLabels = [...labels]; // Backup Time Labels
     const datasets = [];
 
-    // 1. PERIOD TAB (Line Chart)
+    // --- TAB SPECIFIC DATA LOGIC ---
+    // 1. PERIOD TAB
     if (activeTab.value === 'period') {
         const actualColor = 'hsl(217, 91%, 60%)';
         datasets.push({
             label: '実績',
             data: Array.from({ length: dataCount }, () => Math.random() * 50 + 30),
             borderColor: actualColor,
-            borderWidth: 2,
-            fill: false,
-            tension: 0.1,
+            borderWidth: 2, fill: false, tension: 0.1,
             pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: actualColor,
             pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
         });
-
         if (compareDate.value) {
             const compareColor = 'hsl(142, 71%, 45%)';
             datasets.push({
                 label: getDateDisplay(compareDate.value, currentPeriodType.value),
                 data: Array.from({ length: dataCount }, () => Math.random() * 50 + 20),
                 borderColor: compareColor,
-                borderWidth: 2,
-                fill: false,
-                tension: 0.1,
+                borderWidth: 2, fill: false, tension: 0.1,
                 pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: compareColor,
                 pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
             });
         }
-
         if (showTarget.value) {
             datasets.push({
                 label: '目標',
@@ -804,57 +426,113 @@ const generateChartData = async () => {
             });
         }
     }
-
-    // 2. COMPARISON TAB (Bar Chart)
+    // 2. COMPARISON TAB
     else if (activeTab.value === 'comparison') {
         const equipments = ['EQ-001', 'EQ-002', 'EQ-003', 'EQ-004'];
-        labels = equipments;
 
+        // --- A. DỮ LIỆU CHO BIỂU ĐỒ (SNAPSHOT) ---
+        // Trục X là Tên thiết bị
+        labels = equipments;
         datasets.push({
             label: '実績',
             data: equipments.map(() => Math.random() * 100 + 50),
             backgroundColor: 'hsl(217, 91%, 60%)',
+            barPercentage: 0.5,
         });
+
+        // --- B. DỮ LIỆU CHO BẢNG (TIME SERIES) ---
+        // Tạo dữ liệu chi tiết theo thời gian cho từng thiết bị
+        const detailDatasets = equipments.map((eqName, index) => {
+            // Mock dữ liệu theo timeLabels (dataCount)
+            return {
+                label: eqName,
+                data: Array.from({ length: dataCount }, () => Math.random() * 100 + 50),
+            };
+        });
+
+        // Lưu vào biến riêng cho bảng
+        comparisonDetailData.value = {
+            labels: timeLabels, // Sử dụng Time Labels (00:00, 01:00...)
+            datasets: detailDatasets
+        };
     }
-
-    // 3. SHOP TAB (Stacked Bar + Line)
+    // 3. SHOP TAB
     else if (activeTab.value === 'shop') {
-        datasets.push({
-            label: 'Category 1',
-            data: Array.from({ length: dataCount }, () => Math.random() * 30 + 10),
-            backgroundColor: 'hsl(217, 91%, 60%)',
-            stack: 'Stack 0',
-        });
-        datasets.push({
-            label: 'Category 2',
-            data: Array.from({ length: dataCount }, () => Math.random() * 20 + 5),
-            backgroundColor: 'hsl(217, 91%, 80%)',
-            stack: 'Stack 0',
-        });
-
-        if (compareDate.value) {
+        // CASE 3A: LEVEL 4 (HIỂN THỊ BIỂU ĐỒ LINE)
+        if (nodeLevel.value === 4) {
+            // Thực tế (Actual) - Blue Line
+            const actualColor = 'hsl(217, 91%, 60%)';
             datasets.push({
-                label: 'Category 1 (Comp)',
-                data: Array.from({ length: dataCount }, () => Math.random() * 30 + 10),
-                backgroundColor: 'hsl(142, 71%, 45%)',
-                stack: 'Stack 1',
-            });
-        }
-
-        if (!shopDisplayType.value.includes('per_unit')) {
-            const planColor = 'hsl(32, 95%, 44%)';
-            datasets.push({
-                type: 'line',
-                label: '生産計画',
-                data: Array.from({ length: dataCount }, () => Math.random() * 500 + 200),
-                borderColor: planColor,
-                borderWidth: 2,
-                fill: false,
-                yAxisID: 'y1',
-                order: 0,
-                pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: planColor,
+                label: '実績', // Hoặc Cost/CO2 tùy loại hiển thị
+                data: Array.from({ length: dataCount }, () => Math.random() * 50 + 30),
+                borderColor: actualColor,
+                borderWidth: 2, fill: false, tension: 0.1,
+                pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: actualColor,
                 pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
             });
+
+            // So sánh (Compare) - Green Line
+            if (compareDate.value) {
+                const compareColor = 'hsl(142, 71%, 45%)';
+                datasets.push({
+                    label: getDateDisplay(compareDate.value, currentPeriodType.value), // Hoặc '実績 (Compare)'
+                    data: Array.from({ length: dataCount }, () => Math.random() * 50 + 20),
+                    borderColor: compareColor,
+                    borderWidth: 2, fill: false, tension: 0.1,
+                    pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: compareColor,
+                    pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
+                });
+            }
+
+            // Kế hoạch (Plan) - Orange Line
+            if (!shopDisplayType.value.includes('per_unit')) {
+                const planColor = 'hsl(32, 95%, 44%)';
+                datasets.push({
+                    label: '生産計画',
+                    data: Array.from({ length: dataCount }, () => Math.random() * 500 + 200),
+                    borderColor: planColor,
+                    borderWidth: 2, fill: false, tension: 0.1,
+                    yAxisID: 'y1', // Vẫn dùng trục phải
+                    pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: planColor,
+                    pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
+                });
+            }
+        }
+
+        // CASE 3B: LEVEL < 4 (HIỂN THỊ BIỂU ĐỒ STACKED BAR - CŨ)
+        else {
+            datasets.push({
+                label: 'Category 1',
+                data: Array.from({ length: dataCount }, () => Math.random() * 30 + 10),
+                backgroundColor: 'hsl(217, 91%, 60%)',
+                stack: 'Stack 0',
+            });
+            datasets.push({
+                label: 'Category 2',
+                data: Array.from({ length: dataCount }, () => Math.random() * 20 + 5),
+                backgroundColor: 'hsl(217, 91%, 80%)',
+                stack: 'Stack 0',
+            });
+            if (compareDate.value) {
+                datasets.push({
+                    label: 'Category 1 (Comp)',
+                    data: Array.from({ length: dataCount }, () => Math.random() * 30 + 10),
+                    backgroundColor: 'hsl(142, 71%, 45%)',
+                    stack: 'Stack 1',
+                });
+            }
+            if (!shopDisplayType.value.includes('per_unit')) {
+                const planColor = 'hsl(32, 95%, 44%)';
+                datasets.push({
+                    type: 'line', // Mixed Chart
+                    label: '生産計画',
+                    data: Array.from({ length: dataCount }, () => Math.random() * 500 + 200),
+                    borderColor: planColor,
+                    borderWidth: 2, fill: false, yAxisID: 'y1', order: 0,
+                    pointStyle: 'circle', pointRadius: 4, pointBorderWidth: 2, pointBackgroundColor: '#ffffff', pointBorderColor: planColor,
+                    pointHoverRadius: 6, pointHoverBorderWidth: 3, pointHoverBackgroundColor: '#ffffff',
+                });
+            }
         }
     }
 
@@ -862,50 +540,27 @@ const generateChartData = async () => {
     isLoading.value = false;
 };
 
-// --- HANDLERS ---
+// --- EVENTS HANDLERS ---
 const updateDate = (val, target) => {
     let d = new Date();
     if (!val) d = null;
-    else if (currentPeriodType.value === 'week' && val.includes('-W')) {
-        d = parseISO(val.substring(0, 4) + '-01-01');
-    } else if (currentPeriodType.value === 'year') {
-        d = new Date(parseInt(val.substring(0, 4)), 0, 1);
-    } else {
-        d = new Date(val);
-    }
+    else if (currentPeriodType.value === 'week' && val.includes('-W')) d = parseISO(val.substring(0, 4) + '-01-01');
+    else if (currentPeriodType.value === 'year') d = new Date(parseInt(val.substring(0, 4)), 0, 1);
+    else d = new Date(val);
 
     if (target === 'date') { currentDate.value = d; pickerValue.value = val; }
     else { compareDate.value = d; comparePickerValue.value = val; }
 };
 
 const clearCompare = () => { compareDate.value = null; comparePickerValue.value = ''; };
-const applyAxisSettings = () => { isAxisModalOpen.value = false; };
 
-const downloadCSV = () => {
-    if (!chartData.value.labels || chartData.value.labels.length === 0) return;
-    const headers = ['時間/項目', ...chartData.value.datasets.map(ds => ds.label)];
-    const rows = chartData.value.labels.map((label, index) => {
-        const rowData = [label];
-        chartData.value.datasets.forEach(ds => {
-            const val = ds.data[index];
-            rowData.push(val !== null && val !== undefined ? val : '');
-        });
-        return rowData;
-    });
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
-    link.setAttribute("href", url);
-    link.setAttribute("download", `chart_data_${timestamp}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+// Xử lý sự kiện "Apply" từ Modal Axis Settings
+const applyAxisSettings = (newSettings) => {
+    Object.assign(axisSettings, newSettings); // Update reactive state
+    isAxisModalOpen.value = false; // Đóng modal
 };
 
-// Đã loại bỏ hàm fetchTreeData thừa vì dữ liệu được truyền qua props.treeData
-
+// --- WATCHERS & HOOKS ---
 watch([activeTab, currentPeriodType, currentDate, compareDate, showTarget, shopDisplayType, () => route.query], () => {
     if (activeTab.value === 'comparison') compareDate.value = null;
     generateChartData();
