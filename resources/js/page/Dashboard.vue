@@ -108,7 +108,7 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 min-h-[500px] flex flex-col">
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 h-[550px] flex flex-col">
             <div class="flex justify-between items-start mb-6">
                 <h3 class="text-lg font-semibold leading-none tracking-tight">{{ getChartTitle }}</h3>
                 <div v-if="isLoading" class="flex items-center text-sm text-blue-600">
@@ -117,7 +117,7 @@
                 </div>
             </div>
 
-            <div class="flex-1 w-full h-full relative min-h-[400px]">
+            <div class="flex-1 w-full relative h-[450px]">
                 <template v-if="chartVisibility.show">
                     <BarChart v-if="shouldUseBarChart" :data="chartData" :options="chartOptions"
                         class="w-full h-full" />
