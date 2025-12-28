@@ -23,110 +23,42 @@ class AuthController extends Controller
     }
 
     public function login(LoginRequest $request)
-{
-    $request->authenticate();
-    
-    // Lấy user
-    $user = User::where('user_id', $request->user_id)->first();
-
-    // --- CẬP NHẬT LOGIC PERSISTENT ---
-    // Kiểm tra user có role ID = 3 (display_user) hay không
-    $isPersistent = $user->isPersistent(); 
-
-    // Access Token: Ngắn hạn (ví dụ 2 tiếng)
-   // Lấy config, nếu null thì fallback về 120 phút (cho Access Token)
-    $expirationMinutes = config('sanctum.expiration') ?: 120;
-    
-    $accessTokenExpiration = Carbon::now()->addMinutes($expirationMinutes);
-    
-    // Refresh Token: 
-    // Nếu là display_user (ID 3) -> 5 năm
-    // Nếu là admin/user thường -> 1 ngày
-    $refreshTokenExpiration = $isPersistent 
-        ? Carbon::now()->addYears(5) 
-        : Carbon::now()->addDay();
-
-    // Tạo Tokens
-    $accessToken = $user->createToken('access_token', ['access-api'], $accessTokenExpiration);
-    $refreshToken = $user->createToken('refresh_token', ['issue-access-token'], $refreshTokenExpiration);
-
-    return response()->json([
-        'message' => 'Login successful',
-        'user' => $user->load('roles'), // Trả về kèm role để FE biết
-        'access_token' => $accessToken->plainTextToken,
-        'refresh_token' => $refreshToken->plainTextToken,
-        'token_type' => 'Bearer',
-    ]);
-}
-
-    /**
-     * Làm mới Token (Rotation)
-     */
-    public function refreshToken(Request $request)
     {
-        // Lấy refresh token từ request
-        $refreshTokenString = $request->input('refresh_token');
-        
-        // Tìm token trong DB (Sanctum lưu hashed, nên ta cần tìm qua model nếu muốn check kỹ, 
-        // nhưng đơn giản nhất là dùng user() từ middleware auth:sanctum với token đó)
-        
-        // Lưu ý: Route này cần được bảo vệ bởi auth:sanctum, client sẽ gửi Refresh Token làm Bearer Token
-        $user = $request->user();
-        $currentToken = $user->currentAccessToken();
+        // 1. Validate & Rate Limiting (Giữ nguyên logic cũ trong LoginRequest)
+        $request->authenticate();
 
-        // 1. Nếu là Session (TransientToken) -> Báo lỗi yêu cầu dùng Token
-        // (Vì ta muốn bắt buộc quy trình Refresh Token Rotation)
-        if (!$currentToken instanceof PersonalAccessToken) {
-            return response()->json([
-                'message' => 'Request is using Session Cookie instead of Token. Please clear browser cookies.'
-            ], 400);
-        }
+        // 2. Lấy User
+        $user = User::where('user_id', $request->user_id)->first();
 
-        // Kiểm tra Token Ability: Chỉ token có quyền 'issue-access-token' mới được refresh
-        if (!$currentToken->can('issue-access-token')) {
-            return response()->json(['message' => 'Invalid token ability'], 403);
-        }
+        // 3. Xử lý logic Session & Remember Me
+        // Nếu role_code = 3 (isPersistent) -> $remember = true (Vô hạn/5 năm)
+        // Nếu role khác -> $remember = false (Hết session tắt browser là out hoặc theo lifetime)
+        $remember = $user->isPersistent();
 
-        // --- LOGIC ROTATION (Gia hạn vô hạn) ---
-        // 1. Thu hồi Refresh Token cũ (để tránh dùng lại)
-        $currentToken->delete();
+        // 4. Đăng nhập qua Session Manager
+        // Hàm này sẽ tự tạo session record trong DB và trả về cookie
+        Auth::login($user, $remember);
 
-        // 2. Xác định lại thời gian (logic giống lúc login)
-        $isPersistent = $user->isPersistent();
-        $expirationMinutes = config('sanctum.expiration') ?: 120;
-        $accessTokenExpiration = Carbon::now()->addMinutes($expirationMinutes);
-        $refreshTokenExpiration = $isPersistent 
-            ? Carbon::now()->addYears(5) // Gia hạn thêm 5 năm nữa từ thời điểm này
-            : Carbon::now()->addDay();
-
-        // 3. Cấp cặp token mới
-        $newAccessToken = $user->createToken('access_token', ['access-api'], $accessTokenExpiration);
-        $newRefreshToken = $user->createToken('refresh_token', ['issue-access-token'], $refreshTokenExpiration);
+        // 5. Regenerate Session ID để chống tấn công Session Fixation
+        $request->session()->regenerate();
 
         return response()->json([
-            'access_token' => $newAccessToken->plainTextToken,
-            'refresh_token' => $newRefreshToken->plainTextToken,
-            'token_type' => 'Bearer',
+            'message' => 'Login successful',
+            'user' => $user->load('roles'),
+            // Không còn trả về access_token/refresh_token nữa
         ]);
     }
 
     public function logout(Request $request)
     {
-        $user = $request->user();
+        // Hủy session trong DB
+        Auth::guard('web')->logout();
 
-        if ($user) {
-            $currentToken = $user->currentAccessToken();
+        // Invalidate session hiện tại
+        $request->session()->invalidate();
 
-            // 2. Chỉ thực hiện xóa nếu đây là Token thực sự (PersonalAccessToken)
-            if ($currentToken instanceof PersonalAccessToken) {
-                $currentToken->delete();
-            }
-            
-            // (Tuỳ chọn) Nếu bạn muốn logout cả Session cũ nếu có
-            // if (! $currentToken instanceof PersonalAccessToken) {
-            //     auth()->guard('web')->logout();
-            // }
-        }
+        // Regenerate CSRF token
+        $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Logged out successfully']);
     }

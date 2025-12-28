@@ -16,34 +16,46 @@ const router = createRouter({
     routes
 });
 
-// --- NAVIGATION GUARD ---
-router.beforeEach((to, from, next) => {
-    // Check token
-    const token = localStorage.getItem('access_token');
-    
-    // Logic check hết hạn client-side (Optional - vì API sẽ trả về 401 nếu hết hạn)
-    // Nhưng nếu muốn UX tốt hơn thì check ở đây:
-    const tokenExpiry = localStorage.getItem('tokenExpiry');
-    if (token && tokenExpiry) {
-        const now = new Date();
-        const expiry = new Date(tokenExpiry);
-        if (now > expiry) {
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('tokenExpiry');
-            return next({ name: 'Login' });
+router.beforeEach(async (to, from, next) => {
+    const publicPages = ['Login'];
+    const authRequired = !publicPages.includes(to.name);
+
+    if (authRequired) {
+        try {
+            // Gọi API check user session.
+            // Nếu session còn sống -> 200 OK -> Next
+            // Nếu session hết hạn -> 401 Unauthorized -> Catch -> Redirect Login
+            
+            // Lưu ý: Để tối ưu performance, bạn nên lưu user vào Store (Pinia/Vuex) 
+            // và chỉ gọi API này 1 lần khi reload trang (App mount). 
+            // Tuy nhiên, để đảm bảo an toàn tuyệt đối theo yêu cầu "hết session load page sẽ logout",
+            // gọi trực tiếp hoặc bắt lỗi 401 từ Interceptor là cách chắc chắn nhất.
+            
+            await axios.get('/api/get-user-login');
+            next();
+        } catch (error) {
+            // Nếu lỗi 401 (Unauthorized) -> Session hết hạn hoặc chưa login
+            if (error.response && error.response.status === 401) {
+                return next({ name: 'Login' });
+            }
+            // Các lỗi khác vẫn cho next hoặc xử lý tùy ý (ví dụ mất mạng)
+            // Ở đây an toàn nhất là về Login
+             return next({ name: 'Login' });
+        }
+    } else {
+        // Nếu đang ở trang Login mà đã có session -> đẩy vào Dashboard
+        if (to.name === 'Login') {
+            try {
+                await axios.get('/api/get-user-login');
+                return next({ name: 'dashboard' });
+            } catch (e) {
+                // Chưa login -> Ở lại trang Login
+                next();
+            }
+        } else {
+            next();
         }
     }
-
-    // Redirect logic
-    if (to.name === 'Login' && token) {
-        return next({ name: 'dashboard' });
-    }
-
-    if (to.name !== 'Login' && !token) {
-        return next({ name: 'Login' });
-    }
-
-    next();
 });
 
 export default router;

@@ -53,30 +53,32 @@ const errorMessage = ref('');
 
 const login = async () => {
     try {
-        // KHÔNG CẦN GỌI /sanctum/csrf-cookie NỮA KHI DÙNG TOKEN
-        
+        // 1. Lấy CSRF Cookie (Bắt buộc cho Session Auth)
+        await axios.get('/sanctum/csrf-cookie');
+
+        // 2. Gọi API Login
         const response = await axios.post('/api/login', {
             user_id: userId.value,
             password: password.value
         });
 
-        const data = response.data;
+        // 3. Login thành công -> Redirect
+        // Không lưu token vào localStorage nữa
         
-        // --- LƯU TOKEN ---
-        if (data.access_token) {
-            // Lưu Access Token (ngắn hạn)
-            localStorage.setItem('access_token', data.access_token);
-            
-            // Lưu Refresh Token (dài hạn - 5 năm)
-            localStorage.setItem('refresh_token', data.refresh_token);
-            
-            localStorage.setItem('userRole', 'Admin');
-            router.push('/dashboard');
+        // Có thể lưu role tạm để UI render nhanh (optional)
+        // Nhưng source of truth là Session trên Server
+        if(response.data.user && response.data.user.roles.length > 0){
+             // Ví dụ logic map role đơn giản
+             // localStorage.setItem('userRole', ...); 
         }
+
+        router.push('/dashboard');
 
     } catch (error) {
         if (error.response && error.response.status === 422) {
             errorMessage.value = error.response.data.message || 'Login failed';
+        } else if (error.response && error.response.status === 429) {
+             errorMessage.value = 'Too many login attempts. Please try again later.';
         } else {
              console.error(error);
              errorMessage.value = 'System error occurred.';

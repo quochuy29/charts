@@ -70,10 +70,8 @@
     const shouldShowLayout = computed(() => {
         if (route.path === '/login') return false;
         // Kiểm tra sự tồn tại của token
-        return !!localStorage.getItem('access_token');
+        return true;
     });
-
-    const userRole = localStorage.getItem('userRole') || 'Guest';
 
     const selectedNode = ref({
         id: "factory-1",
@@ -139,15 +137,8 @@
         } catch (error) {
             console.error('Logout error', error);
         } finally {
-            // --- CẬP NHẬT: Xóa đúng các key token ---
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('userRole');
-            
             // Xóa dọn dẹp các key cũ nếu còn
             localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('isPersistent');
-            localStorage.removeItem('sessionExpiry');
             
             isDropdownOpen.value = false;
             router.push('/login');
