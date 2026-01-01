@@ -88,8 +88,8 @@
 
     const fetchUserProfile = async () => {
         // --- CẬP NHẬT: Check token trước khi gọi API ---
-        const token = localStorage.getItem('access_token');
-        if (!token || route.path === '/login') return;
+        // const token = localStorage.getItem('access_token');
+        if (route.path === '/login') return;
 
         try {
             const response = await axios.get('/api/get-user-login');
@@ -111,7 +111,7 @@
     watch(
         () => route.path,
         (newPath) => {
-            if (newPath !== '/login') {
+            if (newPath != '/login') {
                 fetchUserProfile();
             }
         },

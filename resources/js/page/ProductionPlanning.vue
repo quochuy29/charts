@@ -89,7 +89,7 @@
 
 <script setup>
     import { ref, computed, reactive, watch } from 'vue';
-    import { mockMenuData, mockProductionPlans } from '../services/mockData';
+    import { mockProductionPlans } from '../services/mockData';
 
     const selectedYear = ref(2025);
     const selectedFactoryId = ref('f1');

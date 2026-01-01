@@ -9,8 +9,8 @@ window.axios.interceptors.response.use(
     response => response,
     error => {
         if (error.response && error.response.status === 401) {
-            // Nếu nhận lỗi 401 từ bất kỳ API nào -> Redirect về Login
-            // Trừ trường hợp đang ở trang login rồi
+            // Nếu nhận lỗi 401 từ bất kỳ API nào -> Redirect về Login.
+            // Trừ trường hợp đang ở trang login rồi.
             if (window.location.pathname !== '/login') {
                  window.location.href = '/login';
             }
