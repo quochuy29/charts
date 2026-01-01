@@ -22,34 +22,28 @@ router.beforeEach(async (to, from, next) => {
 
     if (authRequired) {
         try {
-            // Gọi API check user session.
-            // Nếu session còn sống -> 200 OK -> Next
-            // Nếu session hết hạn -> 401 Unauthorized -> Catch -> Redirect Login
-            
-            // Lưu ý: Để tối ưu performance, bạn nên lưu user vào Store (Pinia/Vuex) 
-            // và chỉ gọi API này 1 lần khi reload trang (App mount). 
-            // Tuy nhiên, để đảm bảo an toàn tuyệt đối theo yêu cầu "hết session load page sẽ logout",
-            // gọi trực tiếp hoặc bắt lỗi 401 từ Interceptor là cách chắc chắn nhất.
-            
             await axios.get('/api/get-user-login');
             next();
         } catch (error) {
-            // Nếu lỗi 401 (Unauthorized) -> Session hết hạn hoặc chưa login
+            // Logic cũ giữ nguyên
             if (error.response && error.response.status === 401) {
                 return next({ name: 'Login' });
             }
-            // Các lỗi khác vẫn cho next hoặc xử lý tùy ý (ví dụ mất mạng)
-            // Ở đây an toàn nhất là về Login
-             return next({ name: 'Login' });
+            return next({ name: 'Login' });
         }
     } else {
-        // Nếu đang ở trang Login mà đã có session -> đẩy vào Dashboard
+        // XỬ LÝ CHO TRANG LOGIN
         if (to.name === 'Login') {
+            // [MỚI] Nếu URL có param ?logout=true thì bỏ qua check session
+            if (to.query.logout) {
+                return next(); 
+            }
+
             try {
+                // Chỉ check khi user truy cập trực tiếp (F5 hoặc gõ URL)
                 await axios.get('/api/get-user-login');
                 return next({ name: 'dashboard' });
             } catch (e) {
-                // Chưa login -> Ở lại trang Login
                 next();
             }
         } else {
